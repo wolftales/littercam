@@ -1,0 +1,15 @@
+[Unit]
+Description=LitterCam web UI
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/littercam
+Environment=LITTERCAM_CONFIG=/etc/littercam/config.yaml
+ExecStart=/home/pi/littercam/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,22 @@
+capture:
+  output_root: /data/events
+  cooldown_seconds: 120
+  capture_seconds: 18
+  capture_interval_seconds: 1.0
+  motion_threshold: 12.0
+  downscale_width: 320
+  downscale_height: 240
+  trigger_frames: 3
+
+retention:
+  days_to_keep: 7
+
+web:
+  host: 0.0.0.0
+  port: 8000
+  base_url: http://littercam.local:8000
+
+logging:
+  level: INFO
+  file_logging: false
+  log_dir: /var/log/littercam

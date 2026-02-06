@@ -1,0 +1,9 @@
+[Unit]
+Description=LitterCam retention prune
+
+[Service]
+Type=oneshot
+User=pi
+WorkingDirectory=/home/pi/littercam
+Environment=LITTERCAM_CONFIG=/etc/littercam/config.yaml
+ExecStart=/home/pi/littercam/.venv/bin/littercam-prune

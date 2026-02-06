@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block content %}
+  <section class="panel">
+    <h2>Event {{ event.event_id }}</h2>
+    <p>Start: {{ event.meta.start_ts }}</p>
+    <p>End: {{ event.meta.end_ts }}</p>
+    <p>Trigger score: {{ "%.2f"|format(event.meta.trigger_score) }}</p>
+    <p>Images: {{ event.meta.image_count }}</p>
+    <form method="post" action="/events/{{ event.event_id }}/tag" class="tag-form">
+      <label for="cat_tag">Tag:</label>
+      <select name="cat_tag" id="cat_tag">
+        <option value="" {% if not event.meta.cat_tag %}selected{% endif %}>Unset</option>
+        <option value="CatA" {% if event.meta.cat_tag == "CatA" %}selected{% endif %}>Cat A</option>
+        <option value="CatB" {% if event.meta.cat_tag == "CatB" %}selected{% endif %}>Cat B</option>
+        <option value="Unknown" {% if event.meta.cat_tag == "Unknown" %}selected{% endif %}>Unknown</option>
+      </select>
+      <button type="submit">Save</button>
+    </form>
+    <div class="gallery">
+      {% for thumb in thumbs %}
+        <a href="/data/{{ event.date }}/event-{{ event.event_id }}/{{ images[loop.index0].name }}">
+          <img src="/data/{{ event.date }}/event-{{ event.event_id }}/{{ thumb.name }}" />
+        </a>
+      {% endfor %}
+    </div>
+  </section>
+{% endblock %}

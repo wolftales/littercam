@@ -1,0 +1,15 @@
+[Unit]
+Description=LitterCam capture service
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/littercam
+Environment=LITTERCAM_CONFIG=/etc/littercam/config.yaml
+ExecStart=/home/pi/littercam/.venv/bin/littercam-capture
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

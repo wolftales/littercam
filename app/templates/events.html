@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+  <section class="panel">
+    <h2>Events</h2>
+    {% if not grouped %}
+      <p>No events yet.</p>
+    {% endif %}
+    {% for date, events in grouped.items() %}
+      <h3>{{ date }}</h3>
+      <ul class="event-list">
+        {% for event in events %}
+          <li>
+            <a href="/events/{{ event.event_id }}">
+              {{ event.event_id }}
+            </a>
+            {% if event.meta.cat_tag %}
+              <span class="tag">{{ event.meta.cat_tag }}</span>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% endfor %}
+  </section>
+{% endblock %}

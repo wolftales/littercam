@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block content %}
+  <section class="panel">
+    <h2>Latest Event</h2>
+    {% if not event %}
+      <p>No events captured yet.</p>
+    {% else %}
+      <p>Event {{ event.event_id }} ({{ event.meta.start_ts }})</p>
+      {% if first_image %}
+        <a href="/events/{{ event.event_id }}">
+          <img src="/data/{{ event.date }}/event-{{ event.event_id }}/{{ first_image.name }}" class="hero" />
+        </a>
+      {% endif %}
+      <p><a href="/events/{{ event.event_id }}">View details</a></p>
+    {% endif %}
+  </section>
+{% endblock %}

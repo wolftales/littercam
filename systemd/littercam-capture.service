@@ -4,12 +4,10 @@ After=network.target
 
 [Service]
 Type=simple
-User=pi
-WorkingDirectory=/home/pi/littercam
-Environment=LITTERCAM_CONFIG=/etc/littercam/config.yaml
-ExecStart=/home/pi/littercam/.venv/bin/littercam-capture
+WorkingDirectory=%h/git/littercam
+ExecStart=%h/git/littercam/.venv/bin/littercam-capture
 Restart=on-failure
 RestartSec=5
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=default.target

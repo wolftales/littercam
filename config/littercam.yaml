@@ -1,5 +1,5 @@
 capture:
-  output_root: /data/events
+  output_root: ./data/events
   cooldown_seconds: 120
   capture_seconds: 18
   capture_interval_seconds: 1.0
@@ -19,4 +19,4 @@ web:
 logging:
   level: INFO
   file_logging: false
-  log_dir: /var/log/littercam
+  log_dir: ./logs

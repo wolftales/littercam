@@ -11,7 +11,7 @@
         {% for event in events %}
           <li>
             <a href="/events/{{ event.event_id }}">
-              {{ event.event_id }}
+              {{ event.event_id | event_time }}
             </a>
             {% if event.meta.cat_tag %}
               <span class="tag">{{ event.meta.cat_tag }}</span>

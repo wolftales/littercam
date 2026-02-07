@@ -1,6 +1,7 @@
 """FastAPI web app for LitterCam."""
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -17,6 +18,28 @@ app = FastAPI(title="LitterCam")
 config: AppConfig = load_config()
 
 TEMPLATES = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
+
+
+def format_event_time(event_id: str) -> str:
+    """Format event_id like '20260207-184013' to '6:40 PM'."""
+    try:
+        dt = datetime.strptime(event_id, "%Y%m%d-%H%M%S")
+        return dt.strftime("%-I:%M %p")
+    except ValueError:
+        return event_id
+
+
+def format_datetime(iso_str: str) -> str:
+    """Format ISO datetime to readable format."""
+    try:
+        dt = datetime.fromisoformat(iso_str)
+        return dt.strftime("%b %-d, %Y %-I:%M:%S %p")
+    except ValueError:
+        return iso_str
+
+
+TEMPLATES.env.filters["event_time"] = format_event_time
+TEMPLATES.env.filters["datetime"] = format_datetime
 
 app.mount(
     "/data",

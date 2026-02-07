@@ -1,9 +1,9 @@
 {% extends "base.html" %}
 {% block content %}
   <section class="panel">
-    <h2>Event {{ event.event_id }}</h2>
-    <p>Start: {{ event.meta.start_ts }}</p>
-    <p>End: {{ event.meta.end_ts }}</p>
+    <h2>{{ event.event_id | event_time }}</h2>
+    <p>Start: {{ event.meta.start_ts | datetime }}</p>
+    <p>End: {{ event.meta.end_ts | datetime }}</p>
     <p>Trigger score: {{ "%.2f"|format(event.meta.trigger_score) }}</p>
     <p>Images: {{ event.meta.image_count }}</p>
     <form method="post" action="/events/{{ event.event_id }}/tag" class="tag-form">

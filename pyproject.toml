@@ -5,26 +5,26 @@ description = "Raspberry Pi LitterCam motion capture and web UI"
 requires-python = ">=3.11"
 readme = "README.md"
 dependencies = [
-  "fastapi==0.111.0",
-  "uvicorn==0.30.0",
-  "jinja2==3.1.4",
-  "pyyaml==6.0.1",
-  "pillow==10.3.0",
-  "numpy==1.26.4",
-  "python-multipart==0.0.9",
+  "fastapi>=0.111.0",
+  "uvicorn>=0.30.0",
+  "jinja2>=3.1.4",
+  "pyyaml>=6.0.1",
+  "pillow>=11.0.0",
+  "numpy>=1.26.0",
+  "python-multipart>=0.0.9",
 ]
 
 [project.optional-dependencies]
-pi = ["picamera2==0.3.16"]
+pi = ["picamera2>=0.3.16"]
 
-test = ["pytest==8.2.0"]
+test = ["pytest>=8.2.0"]
 
 [project.scripts]
 littercam-capture = "littercam.run_capture:main"
 littercam-prune = "littercam.prune:run_prune"
 
 [build-system]
-requires = ["setuptools==69.5.1", "wheel==0.43.0"]
+requires = ["setuptools>=69.5.1", "wheel>=0.43.0"]
 build-backend = "setuptools.build_meta"
 
 [tool.pytest.ini_options]

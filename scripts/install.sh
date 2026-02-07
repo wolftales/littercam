@@ -6,7 +6,7 @@ PROJECT_DIR="$(pwd)"
 
 echo "==> Installing system dependencies..."
 sudo apt update
-sudo apt install -y libcamera-apps python3-picamera2 python3-venv python3-dev
+sudo apt install -y libcamera-apps python3-picamera2 python3-venv python3-dev libcap-dev
 
 echo "==> Setting up Python environment..."
 python3 -m venv .venv

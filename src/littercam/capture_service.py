@@ -10,7 +10,7 @@ from pathlib import Path
 from PIL import Image
 
 from littercam.config import AppConfig
-from littercam.detection import MotionConfig, MotionDetector, motion_loop
+from littercam.detection import MotionConfig, MotionDetector
 from littercam.events import EventMeta, event_dir_for, write_meta
 from littercam.logging import configure_logging
 
@@ -65,13 +65,26 @@ class CaptureService:
             image.thumbnail((320, 240))
             image.save(thumbnail_path, "JPEG")
 
+    def _wait_for_motion(self) -> float:
+        """Wait for motion and return the trigger score. Releases camera when done."""
+        detector = MotionDetector(self._motion_config)
+        try:
+            while True:
+                score = detector.poll()
+                if score is not None:
+                    return score
+                time.sleep(0.25)
+        finally:
+            detector.close()
+
     def run(self) -> None:
         configure_logging(self._config.logging)
         self._output_root.mkdir(parents=True, exist_ok=True)
-        detector = MotionDetector(self._motion_config)
         logger.info("Starting motion detection")
 
-        for score in motion_loop(detector):
+        while True:
+            score = self._wait_for_motion()
+
             start_ts = datetime.now(timezone.utc)
             event_path = event_dir_for(start_ts, self._output_root)
             event_path.mkdir(parents=True, exist_ok=True)

@@ -27,6 +27,13 @@ systemctl --user start littercam-capture
 systemctl --user start littercam-web
 ```
 
+Check they're running:
+
+```bash
+systemctl --user status littercam-capture
+systemctl --user status littercam-web
+```
+
 Open in browser from any device on your LAN:
 
 ```

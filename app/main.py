@@ -21,19 +21,23 @@ TEMPLATES = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
 
 def format_event_time(event_id: str) -> str:
-    """Format event_id like '20260207-184013' to '6:40 PM'."""
+    """Format event_id like '20260207-184013' to '6:40 PM' in local time."""
     try:
-        dt = datetime.strptime(event_id, "%Y%m%d-%H%M%S")
-        return dt.strftime("%-I:%M %p")
+        # Event IDs are in UTC, convert to local time
+        from datetime import timezone as tz
+        dt = datetime.strptime(event_id, "%Y%m%d-%H%M%S").replace(tzinfo=tz.utc)
+        local_dt = dt.astimezone()
+        return local_dt.strftime("%-I:%M %p")
     except ValueError:
         return event_id
 
 
 def format_datetime(iso_str: str) -> str:
-    """Format ISO datetime to readable format."""
+    """Format ISO datetime to readable format in local time."""
     try:
         dt = datetime.fromisoformat(iso_str)
-        return dt.strftime("%b %-d, %Y %-I:%M:%S %p")
+        local_dt = dt.astimezone()
+        return local_dt.strftime("%b %-d, %Y %-I:%M:%S %p")
     except ValueError:
         return iso_str
 

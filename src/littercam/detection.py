@@ -1,7 +1,7 @@
 """Camera-based motion detection using libcamera via Picamera2."""
 from __future__ import annotations
 
-import importlib
+import importlib.util
 import logging
 import time
 from dataclasses import dataclass

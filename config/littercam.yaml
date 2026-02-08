@@ -1,12 +1,12 @@
 capture:
   output_root: ./data/events
-  cooldown_seconds: 120
-  capture_seconds: 18
-  capture_interval_seconds: 1.0
-  motion_threshold: 12.0
+  cooldown_seconds: 30
+  capture_seconds: 10
+  capture_interval_seconds: 0.5
+  motion_threshold: 8.0
   downscale_width: 320
   downscale_height: 240
-  trigger_frames: 3
+  trigger_frames: 2
 
 retention:
   days_to_keep: 7

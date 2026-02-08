@@ -4,7 +4,7 @@ from __future__ import annotations
 import importlib
 import logging
 import time
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 
 from PIL import Image
@@ -85,12 +85,12 @@ class CaptureService:
         while True:
             score = self._wait_for_motion()
 
-            start_ts = datetime.now(timezone.utc)
+            start_ts = datetime.now().astimezone()
             event_path = event_dir_for(start_ts, self._output_root)
             event_path.mkdir(parents=True, exist_ok=True)
             logger.info("Motion detected (score %.2f). Capturing burst.", score)
             image_count = self._capture_burst(event_path)
-            end_ts = datetime.now(timezone.utc)
+            end_ts = datetime.now().astimezone()
             meta = EventMeta(
                 start_ts=start_ts.isoformat(),
                 end_ts=end_ts.isoformat(),

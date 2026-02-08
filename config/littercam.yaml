@@ -15,7 +15,7 @@ capture:
 
   # Seconds to wait between capture events
   # Prevents rapid-fire captures of the same activity
-  cooldown_seconds: 30
+  cooldown_seconds: 20
 
   # How long to capture images once triggered (seconds)
   capture_seconds: 30

@@ -30,7 +30,7 @@ capture:
 
 retention:
   # Automatically delete events older than this many days
-  days_to_keep: 7
+  days_to_keep: 14
 
 web:
   host: 0.0.0.0

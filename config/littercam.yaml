@@ -3,7 +3,7 @@ capture:
   cooldown_seconds: 30
   capture_seconds: 10
   capture_interval_seconds: 0.5
-  motion_threshold: 8.0
+  motion_threshold: 5.0
   downscale_width: 320
   downscale_height: 240
   trigger_frames: 2

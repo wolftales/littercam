@@ -1,14 +1,35 @@
+# LitterCam Configuration
+
 capture:
   output_root: ./data/events
-  cooldown_seconds: 30
-  capture_seconds: 10
-  capture_interval_seconds: 0.5
+
+  # Motion sensitivity (1-20, lower = more sensitive)
+  # 5 = very sensitive, catches subtle movement
+  # 10 = moderate, good for larger movements
+  # 15+ = low sensitivity, only big changes
   motion_threshold: 5.0
-  downscale_width: 320
-  downscale_height: 240
+
+  # Consecutive frames of motion needed to trigger (1-5)
+  # Lower = faster reaction, higher = fewer false positives
   trigger_frames: 2
 
+  # Seconds to wait between capture events
+  # Prevents rapid-fire captures of the same activity
+  cooldown_seconds: 30
+
+  # How long to capture images once triggered (seconds)
+  capture_seconds: 10
+
+  # Time between each image during capture (seconds)
+  # 0.5 = 2 images per second, 1.0 = 1 image per second
+  capture_interval_seconds: 0.5
+
+  # Resolution for motion detection (lower = faster, less precise)
+  downscale_width: 320
+  downscale_height: 240
+
 retention:
+  # Automatically delete events older than this many days
   days_to_keep: 7
 
 web:

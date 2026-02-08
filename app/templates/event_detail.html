@@ -18,10 +18,107 @@
     </form>
     <div class="gallery">
       {% for thumb in thumbs %}
-        <a href="/data/{{ event.date }}/event-{{ event.event_id }}/{{ images[loop.index0].name }}">
+        <a href="#" onclick="openLightbox({{ loop.index0 }}); return false;">
           <img src="/data/{{ event.date }}/event-{{ event.event_id }}/{{ thumb.name }}" />
         </a>
       {% endfor %}
     </div>
   </section>
+
+  <div id="lightbox" class="lightbox" onclick="closeLightbox()">
+    <span class="lightbox-close" onclick="closeLightbox()">&times;</span>
+    <span class="lightbox-nav lightbox-prev" onclick="event.stopPropagation(); navigate(-1)">&#10094;</span>
+    <img id="lightbox-img" src="" onclick="event.stopPropagation()">
+    <span class="lightbox-nav lightbox-next" onclick="event.stopPropagation(); navigate(1)">&#10095;</span>
+    <div class="lightbox-counter" onclick="event.stopPropagation()">
+      <span id="lightbox-current">1</span> / <span id="lightbox-total">1</span>
+    </div>
+  </div>
+
+  <style>
+    .lightbox {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.9);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+    }
+    .lightbox.active { display: flex; }
+    .lightbox img {
+      max-width: 90%;
+      max-height: 85%;
+      object-fit: contain;
+    }
+    .lightbox-close {
+      position: absolute;
+      top: 20px;
+      right: 30px;
+      font-size: 40px;
+      color: white;
+      cursor: pointer;
+    }
+    .lightbox-nav {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 50px;
+      color: white;
+      cursor: pointer;
+      padding: 20px;
+      user-select: none;
+    }
+    .lightbox-prev { left: 10px; }
+    .lightbox-next { right: 10px; }
+    .lightbox-nav:hover { color: #ccc; }
+    .lightbox-counter {
+      position: absolute;
+      bottom: 20px;
+      color: white;
+      font-size: 18px;
+    }
+  </style>
+
+  <script>
+    const images = [
+      {% for img in images %}"/data/{{ event.date }}/event-{{ event.event_id }}/{{ img.name }}"{% if not loop.last %},{% endif %}
+      {% endfor %}
+    ];
+    let currentIndex = 0;
+
+    function openLightbox(index) {
+      currentIndex = index;
+      updateLightbox();
+      document.getElementById('lightbox').classList.add('active');
+    }
+
+    function closeLightbox() {
+      document.getElementById('lightbox').classList.remove('active');
+    }
+
+    function navigate(direction) {
+      currentIndex += direction;
+      if (currentIndex < 0) currentIndex = images.length - 1;
+      if (currentIndex >= images.length) currentIndex = 0;
+      updateLightbox();
+    }
+
+    function updateLightbox() {
+      document.getElementById('lightbox-img').src = images[currentIndex];
+      document.getElementById('lightbox-current').textContent = currentIndex + 1;
+      document.getElementById('lightbox-total').textContent = images.length;
+    }
+
+    document.addEventListener('keydown', (e) => {
+      const lightbox = document.getElementById('lightbox');
+      if (!lightbox.classList.contains('active')) return;
+      if (e.key === 'Escape') closeLightbox();
+      if (e.key === 'ArrowLeft') navigate(-1);
+      if (e.key === 'ArrowRight') navigate(1);
+    });
+  </script>
 {% endblock %}

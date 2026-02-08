@@ -18,7 +18,7 @@ capture:
   cooldown_seconds: 30
 
   # How long to capture images once triggered (seconds)
-  capture_seconds: 10
+  capture_seconds: 30
 
   # Time between each image during capture (seconds)
   # 0.5 = 2 images per second, 1.0 = 1 image per second

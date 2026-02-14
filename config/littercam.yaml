@@ -47,11 +47,11 @@ capture:
   jpeg_quality: 85
 
 cat_detection:
-  # Enable TFLite cat detection (requires model files)
+  # Enable cat detection via ONNX Runtime (requires model files)
   enabled: true
 
-  # Path to quantized MobileNet SSD v2 TFLite model
-  model_path: ./models/ssd_mobilenet_v2.tflite
+  # Path to SSD MobileNet v1 ONNX model
+  model_path: ./models/ssd_mobilenet_v1.onnx
 
   # Path to COCO labels file
   labels_path: ./models/coco_labels.txt

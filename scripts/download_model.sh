@@ -1,21 +1,21 @@
 #!/usr/bin/env bash
-# Download the quantized MobileNet SSD v2 COCO model for cat detection.
+# Download the SSD MobileNet v1 COCO ONNX model for cat detection.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
 MODEL_DIR="models"
-MODEL_URL="https://storage.googleapis.com/download.tensorflow.org/models/tflite/coco_ssd_mobilenet_v1_1.0_quant_2018_06_29.zip"
-LABELS_URL="https://raw.githubusercontent.com/tensorflow/models/master/research/object_detection/data/mscoco_label_map.pbtxt"
+MODEL_FILE="$MODEL_DIR/ssd_mobilenet_v1.onnx"
+MODEL_URL="https://github.com/onnx/models/raw/main/validated/vision/object_detection_segmentation/ssd-mobilenetv1/model/ssd_mobilenet_v1_12.onnx"
 
 mkdir -p "$MODEL_DIR"
 
-echo "==> Downloading quantized SSD MobileNet v2 COCO model..."
-TMP_ZIP=$(mktemp)
-curl -fSL "$MODEL_URL" -o "$TMP_ZIP"
-unzip -o "$TMP_ZIP" -d "$MODEL_DIR"
-mv "$MODEL_DIR/detect.tflite" "$MODEL_DIR/ssd_mobilenet_v2.tflite" 2>/dev/null || true
-rm -f "$TMP_ZIP"
+if [ -f "$MODEL_FILE" ]; then
+  echo "Model already exists at $MODEL_FILE"
+else
+  echo "==> Downloading SSD MobileNet v1 COCO ONNX model..."
+  curl -fSL "$MODEL_URL" -o "$MODEL_FILE"
+fi
 
 echo "==> Creating COCO labels file..."
 cat > "$MODEL_DIR/coco_labels.txt" << 'LABELS'
@@ -103,5 +103,5 @@ cat > "$MODEL_DIR/coco_labels.txt" << 'LABELS'
 LABELS
 
 echo "==> Model files ready in $MODEL_DIR/"
-ls -la "$MODEL_DIR/"
+ls -lh "$MODEL_FILE"
 echo "Done!"

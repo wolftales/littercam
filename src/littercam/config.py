@@ -128,7 +128,7 @@ def load_config(path: Path | None = None) -> AppConfig:
         ),
         cat_detection=CatDetectionConfig(
             enabled=bool(cat_detection_raw.get("enabled", True)),
-            model_path=str(cat_detection_raw.get("model_path", "./models/ssd_mobilenet_v2.tflite")),
+            model_path=str(cat_detection_raw.get("model_path", "./models/ssd_mobilenet_v1.onnx")),
             labels_path=str(cat_detection_raw.get("labels_path", "./models/coco_labels.txt")),
             confidence_threshold=float(cat_detection_raw.get("confidence_threshold", 0.5)),
         ),

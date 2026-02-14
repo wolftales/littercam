@@ -15,7 +15,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-pi = ["picamera2>=0.3.16"]
+pi = ["picamera2>=0.3.16", "onnxruntime>=1.17.0"]
 
 test = ["pytest>=8.2.0"]
 

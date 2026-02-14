@@ -15,7 +15,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-pi = ["picamera2>=0.3.16"]
+pi = ["picamera2>=0.3.16", "tflite-runtime>=2.14.0"]
 
 test = ["pytest>=8.2.0"]
 

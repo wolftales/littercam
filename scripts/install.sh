@@ -17,6 +17,9 @@ pip install -e .[pi]
 echo "==> Creating data directory..."
 mkdir -p data/events
 
+echo "==> Downloading cat detection model..."
+bash "$PROJECT_DIR/scripts/download_model.sh"
+
 echo "==> Installing user systemd services..."
 mkdir -p ~/.config/systemd/user
 cp systemd/littercam-capture.service ~/.config/systemd/user/

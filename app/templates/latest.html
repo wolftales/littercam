@@ -8,7 +8,12 @@
     {% if not event %}
       <p>No events captured yet.</p>
     {% else %}
-      <p>{{ event.event_id | event_time }} &mdash; {{ event.meta.start_ts | datetime }}</p>
+      <p>
+        {{ event.event_id | event_time }} &mdash; {{ event.meta.start_ts | datetime }}
+        {% if event.meta.cat_detected %}
+          <span class="tag tag-cat">Cat ({{ "%.0f"|format(event.meta.cat_confidence * 100) }}%)</span>
+        {% endif %}
+      </p>
       {% if first_image %}
         <a href="/events/{{ event.event_id }}">
           <img src="/data/{{ event.date }}/event-{{ event.event_id }}/{{ first_image.name }}" class="hero" />

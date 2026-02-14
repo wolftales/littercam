@@ -16,6 +16,9 @@
             <a href="/events/{{ event.event_id }}">
               {{ event.event_id | event_time }}
             </a>
+            {% if event.meta.cat_detected %}
+              <span class="tag tag-cat">Cat ({{ "%.0f"|format(event.meta.cat_confidence * 100) }}%)</span>
+            {% endif %}
             {% if event.meta.cat_tag %}
               <span class="tag">{{ event.meta.cat_tag }}</span>
             {% endif %}

@@ -21,9 +21,14 @@ class EventMeta:
     trigger_score: float
     image_count: int
     cat_tag: Optional[str] = None
+    cat_detected: Optional[bool] = None
+    cat_confidence: Optional[float] = None
+    detection_count: Optional[int] = None
 
     def to_json(self) -> str:
-        return json.dumps(asdict(self), indent=2)
+        d = asdict(self)
+        # Omit None values for clean JSON
+        return json.dumps({k: v for k, v in d.items() if v is not None}, indent=2)
 
 
 @dataclass
@@ -47,7 +52,9 @@ def load_event(event_path: Path) -> Optional[Event]:
         return None
     try:
         meta_data = json.loads(meta_path.read_text())
-        meta = EventMeta(**meta_data)
+        # Filter to only known fields for backward compatibility
+        known = {f.name for f in EventMeta.__dataclass_fields__.values()}
+        meta = EventMeta(**{k: v for k, v in meta_data.items() if k in known})
     except (json.JSONDecodeError, TypeError) as exc:
         logger.warning("Failed to parse %s: %s", meta_path, exc)
         return None

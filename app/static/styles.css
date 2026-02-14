@@ -53,6 +53,11 @@ body {
   margin-left: 0.5rem;
 }
 
+.tag-cat {
+  background: #fef3c7;
+  color: #92400e;
+}
+
 .gallery {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));

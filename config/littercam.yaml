@@ -17,8 +17,12 @@ capture:
   # Prevents rapid-fire captures of the same activity
   cooldown_seconds: 20
 
-  # How long to capture images once triggered (seconds)
-  capture_seconds: 30
+  # Legacy alias — max_capture_seconds is preferred
+  capture_seconds: 120
+
+  # Maximum recording duration (seconds)
+  # Recording stops earlier if no activity detected
+  max_capture_seconds: 120
 
   # Time between each image during capture (seconds)
   # 0.5 = 2 images per second, 1.0 = 1 image per second
@@ -27,6 +31,33 @@ capture:
   # Resolution for motion detection (lower = faster, less precise)
   downscale_width: 320
   downscale_height: 240
+
+  # Seconds of pre-trigger frames to keep in buffer
+  # These frames are saved when motion triggers, capturing the approach
+  pre_roll_seconds: 5
+
+  # Seconds of inactivity after last motion/detection before stopping
+  post_roll_seconds: 5
+
+  # Main capture resolution
+  main_width: 1920
+  main_height: 1080
+
+  # JPEG quality for captured images (1-100)
+  jpeg_quality: 85
+
+cat_detection:
+  # Enable TFLite cat detection (requires model files)
+  enabled: true
+
+  # Path to quantized MobileNet SSD v2 TFLite model
+  model_path: ./models/ssd_mobilenet_v2.tflite
+
+  # Path to COCO labels file
+  labels_path: ./models/coco_labels.txt
+
+  # Minimum confidence for a cat detection (0.0-1.0)
+  confidence_threshold: 0.5
 
 retention:
   # Automatically delete events older than this many days

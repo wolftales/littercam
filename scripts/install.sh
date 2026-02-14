@@ -14,6 +14,10 @@ python3 -m venv --system-site-packages .venv
 pip install --upgrade pip
 pip install -e .[pi]
 
+echo "==> Installing tflite-runtime for cat detection..."
+pip install tflite-runtime --extra-index-url https://google-coral.github.io/py-repo/ || \
+  echo "WARNING: tflite-runtime not available — cat detection will be disabled"
+
 echo "==> Creating data directory..."
 mkdir -p data/events
 

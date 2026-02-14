@@ -6,13 +6,18 @@ PROJECT_DIR="$(pwd)"
 
 echo "==> Installing system dependencies..."
 sudo apt update
-sudo apt install -y libcamera-apps python3-picamera2 python3-venv python3-dev libcap-dev python3-tflite-runtime
+sudo apt install -y libcamera-apps python3-picamera2 python3-venv python3-dev libcap-dev
 
 echo "==> Setting up Python environment..."
 python3 -m venv --system-site-packages .venv
 . .venv/bin/activate
 pip install --upgrade pip
 pip install -e .[pi]
+
+echo "==> Installing tflite-runtime for cat detection..."
+pip install tflite-runtime 2>/dev/null || \
+  sudo apt install -y python3-tflite-runtime 2>/dev/null || \
+  echo "NOTE: tflite-runtime not available for Python $(python3 --version 2>&1). Cat detection will be disabled — motion capture still works."
 
 echo "==> Creating data directory..."
 mkdir -p data/events

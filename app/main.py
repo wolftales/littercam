@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from fastapi import FastAPI, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -87,6 +87,19 @@ async def latest(request: Request) -> HTMLResponse:
         "latest.html",
         {"request": request, "event": event, "first_image": first_image},
     )
+
+
+@app.get("/live", response_class=HTMLResponse)
+async def live(request: Request) -> HTMLResponse:
+    return TEMPLATES.TemplateResponse("live.html", {"request": request})
+
+
+@app.get("/snapshot")
+async def snapshot() -> Response:
+    snapshot_path = config.capture.output_root / "snapshot.jpg"
+    if not snapshot_path.exists():
+        raise HTTPException(status_code=503, detail="No snapshot available — is the capture service running?")
+    return Response(content=snapshot_path.read_bytes(), media_type="image/jpeg")
 
 
 @app.get("/events", response_class=HTMLResponse)

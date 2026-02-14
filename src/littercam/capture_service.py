@@ -153,11 +153,21 @@ class CaptureService:
             detection_count,
         )
 
+    def _write_snapshot(self) -> None:
+        """Write the latest buffered frame as a snapshot for the live view."""
+        if self._camera._buffer:
+            latest = self._camera._buffer[-1]
+            tmp = self._snapshot_path.with_suffix(".tmp")
+            tmp.write_bytes(latest.jpeg_bytes)
+            tmp.replace(self._snapshot_path)
+
     def run(self) -> None:
         configure_logging(self._config.logging)
         self._output_root.mkdir(parents=True, exist_ok=True)
         self._camera.start()
         logger.info("Capture service started (IDLE)")
+
+        self._snapshot_path = self._output_root / "snapshot.jpg"
 
         state = State.IDLE
         try:
@@ -167,8 +177,9 @@ class CaptureService:
                     lores = self._camera.capture_lores()
                     trigger = self._detector.analyze(lores)
 
-                    # Buffer a main frame for pre-roll
+                    # Buffer a main frame for pre-roll and write snapshot
                     self._camera.buffer_frame()
+                    self._write_snapshot()
 
                     if trigger is not None:
                         state = State.RECORDING

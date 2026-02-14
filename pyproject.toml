@@ -22,6 +22,7 @@ test = ["pytest>=8.2.0"]
 [project.scripts]
 littercam-capture = "littercam.run_capture:main"
 littercam-prune = "littercam.prune:run_prune"
+littercam-live = "littercam.live_stream:main"
 
 [build-system]
 requires = ["setuptools>=69.5.1", "wheel>=0.43.0"]

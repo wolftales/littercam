@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+  <section class="panel">
+    <h2>Live View</h2>
+    <p id="status">Refreshing every 1s &mdash; <button onclick="toggleRefresh()">Pause</button></p>
+    <img id="live-img" src="/snapshot" class="hero" alt="Live camera view" />
+  </section>
+
+  <script>
+    let interval = null;
+    let running = true;
+    const img = document.getElementById('live-img');
+    const btn = document.querySelector('button');
+
+    function refresh() {
+      img.src = '/snapshot?' + Date.now();
+    }
+
+    function start() {
+      interval = setInterval(refresh, 1000);
+    }
+
+    function toggleRefresh() {
+      if (running) {
+        clearInterval(interval);
+        btn.textContent = 'Resume';
+      } else {
+        start();
+        btn.textContent = 'Pause';
+      }
+      running = !running;
+    }
+
+    start();
+  </script>
+{% endblock %}

@@ -62,7 +62,12 @@ class CatDetector:
         opts = ort.SessionOptions()
         opts.inter_op_num_threads = 2
         opts.intra_op_num_threads = 4
-        self._session = ort.InferenceSession(str(model_file), sess_options=opts)
+        opts.graph_optimization_level = ort.GraphOptimizationLevel.ORT_DISABLE_ALL
+        self._session = ort.InferenceSession(
+            str(model_file),
+            sess_options=opts,
+            providers=["CPUExecutionProvider"],
+        )
         inp = self._session.get_inputs()[0]
         self._input_name = inp.name
         self._input_shape = tuple(inp.shape[2:4])  # (height, width)

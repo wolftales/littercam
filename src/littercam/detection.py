@@ -26,8 +26,14 @@ class MotionDetector:
         self._previous: Optional[np.ndarray] = None
         self._trigger_count = 0
 
+    @staticmethod
+    def _to_gray(frame: np.ndarray) -> np.ndarray:
+        if frame.ndim == 2:
+            return frame.astype("float32")
+        return frame[:, :, 0].astype("float32")
+
     def _frame_diff(self, frame: np.ndarray) -> float:
-        gray = frame[:, :, 0].astype("float32")
+        gray = self._to_gray(frame)
         if self._previous is None:
             self._previous = gray
             return 0.0
@@ -55,7 +61,7 @@ class MotionDetector:
 
     def current_score(self, frame: np.ndarray) -> float:
         """Check motion score for a frame without affecting trigger count."""
-        gray = frame[:, :, 0].astype("float32")
+        gray = self._to_gray(frame)
         if self._previous is None:
             return 0.0
         diff = np.abs(gray - self._previous)

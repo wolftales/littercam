@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Quick test script to see motion scores in real time."""
 import time
+import numpy as np
 from littercam.config import load_config
 from littercam.camera import CameraManager
 from littercam.detection import MotionDetector, MotionConfig
@@ -24,13 +25,25 @@ det = MotionDetector(MotionConfig(
 ))
 cam.start()
 print(f"Threshold: {cap.motion_threshold}, trigger_frames: {cap.trigger_frames}")
+
+prev_gray = None
 try:
     for i in range(120):
         frame = cam.capture_lores()
         if i == 0:
             print(f"Frame shape: {frame.shape}")
+            print(f"Y plane: {cap.downscale_height}x{cap.downscale_width}")
+
+        # Compute our own score for display
+        y = frame[:cap.downscale_height, :cap.downscale_width].astype("float32")
+        if prev_gray is not None:
+            score = float(np.mean(np.abs(y - prev_gray)))
+        else:
+            score = 0.0
+        prev_gray = y
+
+        # Run the real analyzer
         result = det.analyze(frame)
-        score = det.current_score(frame)
         status = " TRIGGERED!" if result else ""
         print(f"score={score:.2f}{status}")
         time.sleep(0.5)

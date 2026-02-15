@@ -26,10 +26,13 @@ class MotionDetector:
         self._previous: Optional[np.ndarray] = None
         self._trigger_count = 0
 
-    @staticmethod
-    def _to_gray(frame: np.ndarray) -> np.ndarray:
+    def _to_gray(self, frame: np.ndarray) -> np.ndarray:
         if frame.ndim == 2:
-            return frame.astype("float32")
+            # YUV420: full frame is 1.5x height (Y + UV planes).
+            # Extract just the Y (luminance) plane and crop padding.
+            y_height = self._config.downscale_height
+            y_width = self._config.downscale_width
+            return frame[:y_height, :y_width].astype("float32")
         return frame[:, :, 0].astype("float32")
 
     def _frame_diff(self, frame: np.ndarray) -> float:

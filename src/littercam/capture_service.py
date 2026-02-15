@@ -97,6 +97,8 @@ class CaptureService:
         # Adaptive recording loop
         recording_start = time.time()
         last_activity = time.time()
+        frame_num = 0
+        cat_detect_interval = 10  # Run cat detection every N frames
 
         while True:
             elapsed = time.time() - recording_start
@@ -119,15 +121,17 @@ class CaptureService:
             if score >= self._motion_threshold:
                 last_activity = time.time()
 
-            # Run cat detection on lores frame
-            cats = self._cat_detector.detect(lores)
-            if cats:
-                last_activity = time.time()
-                detection_count += 1
-                best = max(cats, key=lambda d: d.confidence)
-                if best.confidence > max_confidence:
-                    max_confidence = best.confidence
+            # Run cat detection every N frames to avoid blocking
+            if frame_num % cat_detect_interval == 0:
+                cats = self._cat_detector.detect(lores)
+                if cats:
+                    last_activity = time.time()
+                    detection_count += 1
+                    best = max(cats, key=lambda d: d.confidence)
+                    if best.confidence > max_confidence:
+                        max_confidence = best.confidence
 
+            frame_num += 1
             time.sleep(self._capture_interval)
 
         end_ts = datetime.now().astimezone()

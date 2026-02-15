@@ -7,6 +7,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
+import numpy as np
 from PIL import Image
 
 from littercam.camera import CameraManager
@@ -76,16 +77,44 @@ class CaptureService:
         thumbnail_path = event_path / f"thumb-{index:03d}.jpg"
         self._create_thumbnail(image_path, thumbnail_path)
 
+    def _scan_for_cats(self, event_path: Path) -> tuple[bool, float, int]:
+        """Post-capture cat detection: scan saved thumbnails for cats."""
+        max_confidence = 0.0
+        detection_count = 0
+
+        thumbs = sorted(event_path.glob("thumb-*.jpg"))
+        if not thumbs:
+            return False, 0.0, 0
+
+        logger.info("Scanning %d thumbnails for cats...", len(thumbs))
+        for thumb_path in thumbs:
+            img = Image.open(thumb_path)
+            frame = np.array(img)
+            cats = self._cat_detector.detect(frame)
+            if cats:
+                detection_count += 1
+                best = max(cats, key=lambda d: d.confidence)
+                if best.confidence > max_confidence:
+                    max_confidence = best.confidence
+
+        cat_detected = detection_count > 0
+        if cat_detected:
+            logger.info(
+                "Cat detected in %d/%d frames (best %.1f%%)",
+                detection_count, len(thumbs), max_confidence * 100,
+            )
+        else:
+            logger.info("No cats detected")
+        return cat_detected, max_confidence, detection_count
+
     def _record_event(self, trigger_score: float) -> None:
-        """Run the RECORDING state: flush pre-roll, capture adaptively, write meta."""
+        """Run the RECORDING state: flush pre-roll, capture with motion tracking, then scan for cats."""
         start_ts = datetime.now().astimezone()
         event_path = event_dir_for(start_ts, self._output_root)
         event_path.mkdir(parents=True, exist_ok=True)
         logger.info("Motion detected (score %.2f). Recording to %s", trigger_score, event_path.name)
 
         image_count = 0
-        max_confidence = 0.0
-        detection_count = 0
 
         # Flush pre-roll buffer
         pre_roll_frames = self._camera.drain_buffer()
@@ -94,11 +123,9 @@ class CaptureService:
             image_count += 1
         logger.info("Flushed %d pre-roll frames", len(pre_roll_frames))
 
-        # Adaptive recording loop
+        # Recording loop — motion only, no cat detection
         recording_start = time.time()
         last_activity = time.time()
-        frame_num = 0
-        cat_detect_interval = 10  # Run cat detection every N frames
 
         while True:
             elapsed = time.time() - recording_start
@@ -121,21 +148,12 @@ class CaptureService:
             if score >= self._motion_threshold:
                 last_activity = time.time()
 
-            # Run cat detection every N frames to avoid blocking
-            if frame_num % cat_detect_interval == 0:
-                cats = self._cat_detector.detect(lores)
-                if cats:
-                    last_activity = time.time()
-                    detection_count += 1
-                    best = max(cats, key=lambda d: d.confidence)
-                    if best.confidence > max_confidence:
-                        max_confidence = best.confidence
-
-            frame_num += 1
             time.sleep(self._capture_interval)
 
         end_ts = datetime.now().astimezone()
-        cat_detected = detection_count > 0
+
+        # Post-capture: scan thumbnails for cats
+        cat_detected, max_confidence, detection_count = self._scan_for_cats(event_path)
 
         meta = EventMeta(
             start_ts=start_ts.isoformat(),
@@ -149,7 +167,7 @@ class CaptureService:
         )
         write_meta(event_path, meta)
         logger.info(
-            "Captured event %s: %d images, cat=%s (%.1f%%, %d frames)",
+            "Event %s complete: %d images, cat=%s (%.1f%%, %d frames)",
             event_path.name,
             image_count,
             cat_detected,

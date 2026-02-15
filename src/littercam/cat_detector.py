@@ -70,7 +70,11 @@ class CatDetector:
         )
         inp = self._session.get_inputs()[0]
         self._input_name = inp.name
-        self._input_shape = tuple(inp.shape[2:4])  # (height, width)
+        # ONNX may report dynamic dims as strings; default to 300x300
+        raw_shape = inp.shape
+        h = raw_shape[1] if isinstance(raw_shape[1], int) else 300
+        w = raw_shape[2] if isinstance(raw_shape[2], int) else 300
+        self._input_shape = (h, w)
         logger.info("Cat detector loaded: %s (input %s)", model_path, self._input_shape)
 
     @staticmethod
@@ -93,7 +97,14 @@ class CatDetector:
         from PIL import Image
 
         h, w = self._input_shape
-        img = Image.fromarray(frame).resize((w, h))
+        # Handle YUV420 (2D) frames — use Y plane as grayscale, convert to RGB
+        if frame.ndim == 2:
+            # Y plane is the top portion (full height of the requested resolution)
+            y_height = int(frame.shape[0] / 1.5)
+            y_plane = frame[:y_height, :frame.shape[1]]
+            img = Image.fromarray(y_plane, mode="L").convert("RGB").resize((w, h))
+        else:
+            img = Image.fromarray(frame).convert("RGB").resize((w, h))
         input_data = np.expand_dims(np.array(img, dtype=np.uint8), axis=0)
 
         outputs = self._session.run(None, {self._input_name: input_data})

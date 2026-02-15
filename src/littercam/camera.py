@@ -78,7 +78,7 @@ class CameraManager:
     def capture_main_jpeg(self) -> bytes:
         """Capture a high-resolution JPEG from the main stream."""
         frame = self._camera.capture_array("main")
-        img = Image.fromarray(frame)
+        img = Image.fromarray(frame).convert("RGB")
         buf = io.BytesIO()
         img.save(buf, format="JPEG", quality=self._jpeg_quality)
         return buf.getvalue()

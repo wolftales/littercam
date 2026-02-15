@@ -1,12 +1,13 @@
 """FastAPI web app for LitterCam."""
 from __future__ import annotations
 
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 
 from fastapi import FastAPI, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -100,6 +101,16 @@ async def snapshot() -> Response:
     if not snapshot_path.exists():
         raise HTTPException(status_code=503, detail="No snapshot available — is the capture service running?")
     return Response(content=snapshot_path.read_bytes(), media_type="image/jpeg")
+
+
+@app.get("/api/status")
+async def api_status() -> JSONResponse:
+    snapshot_path = config.capture.output_root / "snapshot.jpg"
+    capture_ok = False
+    if snapshot_path.exists():
+        age = time.time() - snapshot_path.stat().st_mtime
+        capture_ok = age < 10
+    return JSONResponse({"capture": "ok" if capture_ok else "down", "web": "ok"})
 
 
 @app.get("/events", response_class=HTMLResponse)

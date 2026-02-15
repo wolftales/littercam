@@ -14,10 +14,30 @@
       <a href="/latest">Latest</a>
       <a href="/events">Events</a>
       <a href="/live">Live</a>
+      <span class="status-dot" id="status-dot" title="Checking..."></span>
     </nav>
   </header>
   <main class="content">
     {% block content %}{% endblock %}
   </main>
+  <script>
+    function checkStatus() {
+      fetch('/api/status')
+        .then(r => r.json())
+        .then(d => {
+          const dot = document.getElementById('status-dot');
+          const ok = d.capture === 'ok' && d.web === 'ok';
+          dot.className = 'status-dot ' + (ok ? 'status-ok' : 'status-down');
+          dot.title = ok ? 'All services running' : 'Capture service down';
+        })
+        .catch(() => {
+          const dot = document.getElementById('status-dot');
+          dot.className = 'status-dot status-down';
+          dot.title = 'Cannot reach server';
+        });
+    }
+    checkStatus();
+    setInterval(checkStatus, 10000);
+  </script>
 </body>
 </html>

@@ -70,6 +70,24 @@ body {
   border-radius: 4px;
 }
 
+.status-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #6b7280;
+  margin-left: 0.5rem;
+  vertical-align: middle;
+}
+
+.status-ok {
+  background: #22c55e;
+}
+
+.status-down {
+  background: #ef4444;
+}
+
 .tag-form {
   display: flex;
   align-items: center;

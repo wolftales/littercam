@@ -110,7 +110,7 @@ def load_config(path: Path | None = None) -> AppConfig:
             post_roll_seconds=int(capture_raw.get("post_roll_seconds", 5)),
             max_capture_seconds=int(max_capture),
             main_width=int(capture_raw.get("main_width", 1920)),
-            main_height=int(capture_raw.get("main_height", 1080)),
+            main_height=int(capture_raw.get("main_height", 1440)),
             jpeg_quality=int(capture_raw.get("jpeg_quality", 85)),
         ),
         retention=RetentionConfig(

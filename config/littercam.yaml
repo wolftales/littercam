@@ -39,9 +39,9 @@ capture:
   # Seconds of inactivity after last motion/detection before stopping
   post_roll_seconds: 5
 
-  # Main capture resolution
+  # Main capture resolution (4:3 matches IMX219 sensor, no crop)
   main_width: 1920
-  main_height: 1080
+  main_height: 1440
 
   # JPEG quality for captured images (1-100)
   jpeg_quality: 85

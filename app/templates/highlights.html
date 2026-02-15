@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block head_extra %}
+  <meta http-equiv="refresh" content="30">
+{% endblock %}
+{% block content %}
+  <section class="panel">
+    <h2>Highlights</h2>
+    {% if not cards %}
+      <p>No events yet.</p>
+    {% else %}
+      <div class="highlights-grid">
+        {% for card in cards %}
+          <a href="/events/{{ card.event.event_id }}" class="highlight-card">
+            <img src="{{ card.hero }}" alt="Event highlight" loading="lazy" />
+            <div class="card-info">
+              <span class="card-time">{{ card.event.event_id | event_time }}</span>
+              <span class="card-date">{{ card.event.date }}</span>
+              {% if card.event.meta.cat_detected %}
+                <span class="tag tag-cat">Cat</span>
+              {% endif %}
+              <span class="card-frames">{{ card.event.meta.image_count }} frames</span>
+            </div>
+          </a>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </section>
+{% endblock %}

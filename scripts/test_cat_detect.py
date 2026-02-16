@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Diagnostic script: run cat detector on an event's thumbnails and show ALL detections."""
+"""Diagnostic script: run YOLOv8n cat detector on an event's images and show ALL detections."""
 import sys
 import logging
 from pathlib import Path
@@ -25,7 +25,6 @@ from littercam.config import load_config
 cfg = load_config()
 cat_cfg = cfg.cat_detection
 
-# Load model directly to inspect outputs
 import onnxruntime as ort
 
 model_file = Path(cat_cfg.model_path)
@@ -46,13 +45,9 @@ print(f"Input: {inp.name} shape={inp.shape} type={inp.type}")
 for i, out in enumerate(session.get_outputs()):
     print(f"Output[{i}]: {out.name} shape={out.shape} type={out.type}")
 
-# Build output map
-output_map = {out.name.split(":")[0]: i for i, out in enumerate(session.get_outputs())}
-print(f"Output map: {output_map}")
-
 raw_shape = inp.shape
-h = raw_shape[1] if isinstance(raw_shape[1], int) else 300
-w = raw_shape[2] if isinstance(raw_shape[2], int) else 300
+h = raw_shape[2] if len(raw_shape) >= 4 and isinstance(raw_shape[2], int) else 640
+w = raw_shape[3] if len(raw_shape) >= 4 and isinstance(raw_shape[3], int) else 640
 print(f"Input size: {h}x{w}")
 
 # Load labels
@@ -64,37 +59,44 @@ if labels_file.exists():
         if len(parts) == 2:
             labels[int(parts[0])] = parts[1]
 
-# Scan thumbnails
-thumbs = sorted(event_path.glob("thumb-*.jpg"))
-if not thumbs:
-    thumbs = sorted(event_path.glob("img-*.jpg"))
-print(f"\n=== Scanning {len(thumbs)} images ===")
+# Scan full-res images (fall back to thumbnails)
+images = sorted(event_path.glob("img-*.jpg"))
+if not images:
+    images = sorted(event_path.glob("thumb-*.jpg"))
+print(f"\n=== Scanning {len(images)} images ===")
 
-boxes_idx = output_map.get("detection_boxes", 0)
-classes_idx = output_map.get("detection_classes", 1)
-scores_idx = output_map.get("detection_scores", 2)
-num_idx = output_map.get("num_detections", 3)
+for img_path in images:
+    img = Image.open(img_path).convert("RGB").resize((w, h))
+    img_array = np.array(img, dtype=np.float32) / 255.0
+    input_data = img_array.transpose(2, 0, 1)[np.newaxis, ...]  # HWC -> NCHW
 
-for thumb_path in thumbs:
-    img = Image.open(thumb_path).convert("RGB").resize((w, h))
-    input_data = np.expand_dims(np.array(img, dtype=np.uint8), axis=0)
     outputs = session.run(None, {inp.name: input_data})
 
-    boxes = outputs[boxes_idx][0]
-    classes = outputs[classes_idx][0]
-    scores = outputs[scores_idx][0]
-    num = int(outputs[num_idx][0]) if num_idx < len(outputs) else len(scores)
+    # YOLOv8 output: [1, 84, 8400] -> [8400, 84]
+    raw = outputs[0][0].T
+    class_scores = raw[:, 4:]  # [8400, 80]
+    class_ids = class_scores.argmax(axis=1)
+    max_scores = class_scores.max(axis=1)
 
-    # Show all detections above 10%
+    # Show all detections above 15%
+    mask = max_scores >= 0.15
     hits = []
-    for i in range(min(num, len(scores))):
-        score = float(scores[i])
-        class_id = int(classes[i])
-        if score >= 0.1:
-            label = labels.get(class_id, f"class_{class_id}")
-            hits.append(f"{label}({class_id})={score:.0%}")
+    if mask.any():
+        for i in np.where(mask)[0]:
+            cid = int(class_ids[i])
+            score = float(max_scores[i])
+            label = labels.get(cid, f"class_{cid}")
+            hits.append(f"{label}({cid})={score:.0%}")
+        # Deduplicate by class, show best score per class
+        best_per_class = {}
+        for i in np.where(mask)[0]:
+            cid = int(class_ids[i])
+            score = float(max_scores[i])
+            if cid not in best_per_class or score > best_per_class[cid]:
+                best_per_class[cid] = score
+        hits = [f"{labels.get(c, f'class_{c}')}({c})={s:.0%}" for c, s in sorted(best_per_class.items(), key=lambda x: -x[1])]
 
     if hits:
-        print(f"{thumb_path.name}: {', '.join(hits)}")
+        print(f"{img_path.name}: {', '.join(hits)}")
     else:
-        print(f"{thumb_path.name}: (nothing above 10%)")
+        print(f"{img_path.name}: (nothing above 15%)")

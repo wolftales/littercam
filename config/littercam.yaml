@@ -50,8 +50,8 @@ cat_detection:
   # Enable cat detection via ONNX Runtime (requires model files)
   enabled: true
 
-  # Path to SSD MobileNet v1 ONNX model
-  model_path: ./models/ssd_mobilenet_v1.onnx
+  # Path to YOLOv8n ONNX model
+  model_path: ./models/yolov8n.onnx
 
   # Path to COCO labels file
   labels_path: ./models/coco_labels.txt

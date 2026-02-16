@@ -77,24 +77,70 @@ class CaptureService:
         thumbnail_path = event_path / f"thumb-{index:03d}.jpg"
         self._create_thumbnail(image_path, thumbnail_path)
 
+    def _find_interesting_frames(self, event_path: Path, top_n: int = 10) -> list[int]:
+        """Use cheap thumbnail diffs to find the most visually interesting frame indices."""
+        thumbs = sorted(event_path.glob("thumb-*.jpg"))
+        if len(thumbs) <= top_n:
+            return list(range(len(thumbs)))
+
+        scores: list[tuple[float, int]] = []
+        prev_gray = None
+        for i, thumb_path in enumerate(thumbs):
+            img = Image.open(thumb_path).convert("L")
+            gray = np.array(img, dtype=np.float32)
+            if prev_gray is not None:
+                score = float(np.mean(np.abs(gray - prev_gray)))
+                scores.append((score, i))
+            prev_gray = gray
+
+        # Also compare against baseline if available
+        baseline_path = self._output_root / "baseline.jpg"
+        if baseline_path.exists():
+            baseline_gray = np.array(
+                Image.open(baseline_path).convert("L").resize(
+                    (gray.shape[1], gray.shape[0])
+                ), dtype=np.float32
+            )
+            for i, thumb_path in enumerate(thumbs):
+                img = Image.open(thumb_path).convert("L")
+                gray = np.array(img, dtype=np.float32)
+                diff = float(np.mean(np.abs(gray - baseline_gray)))
+                scores.append((diff, i))
+
+        # Pick top_n unique indices with highest scores
+        scores.sort(reverse=True)
+        seen = set()
+        result = []
+        for _, idx in scores:
+            if idx not in seen:
+                seen.add(idx)
+                result.append(idx)
+                if len(result) >= top_n:
+                    break
+        return sorted(result)
+
     def _scan_for_cats(self, event_path: Path) -> tuple[bool, float, int]:
-        """Post-capture cat detection: scan saved thumbnails for cats."""
+        """Post-capture cat detection: triage with thumbnails, detect on full-res."""
         max_confidence = 0.0
         detection_count = 0
 
-        thumbs = sorted(event_path.glob("thumb-*.jpg"))
-        if not thumbs:
+        images = sorted(event_path.glob("img-*.jpg"))
+        if not images:
             return False, 0.0, 0
 
-        logger.info("Scanning %d thumbnails for cats...", len(thumbs))
-        for thumb_path in thumbs:
-            img = Image.open(thumb_path).convert("RGB")
+        # Use thumbnail diffs to find interesting frames, then detect on full-res
+        interesting = self._find_interesting_frames(event_path)
+        candidates = [images[i] for i in interesting if i < len(images)]
+
+        logger.info("Scanning %d/%d interesting frames for cats...", len(candidates), len(images))
+        for img_path in candidates:
+            img = Image.open(img_path).convert("RGB")
             frame = np.array(img)
             cats = self._cat_detector.detect(frame)
             if cats:
                 detection_count += 1
                 best = max(cats, key=lambda d: d.confidence)
-                logger.info("Cat in %s: %.1f%%", thumb_path.name, best.confidence * 100)
+                logger.info("Cat in %s: %.1f%%", img_path.name, best.confidence * 100)
                 if best.confidence > max_confidence:
                     max_confidence = best.confidence
 
@@ -188,6 +234,15 @@ class CaptureService:
             tmp.write_bytes(latest.jpeg_bytes)
             tmp.replace(self._snapshot_path)
 
+    def _update_baseline(self) -> None:
+        """Update baseline image when scene is stable (for background subtraction)."""
+        baseline_path = self._output_root / "baseline.jpg"
+        if self._camera._buffer:
+            latest = self._camera._buffer[-1]
+            tmp = baseline_path.with_suffix(".tmp")
+            tmp.write_bytes(latest.jpeg_bytes)
+            tmp.replace(baseline_path)
+
     def run(self) -> None:
         configure_logging(self._config.logging)
         self._output_root.mkdir(parents=True, exist_ok=True)
@@ -197,6 +252,8 @@ class CaptureService:
         self._snapshot_path = self._output_root / "snapshot.jpg"
 
         state = State.IDLE
+        last_motion_time = time.time()
+        baseline_updated = False
         try:
             while True:
                 if state == State.IDLE:
@@ -213,7 +270,14 @@ class CaptureService:
                         self._record_event(trigger)
                         self._detector.reset()
                         state = State.COOLDOWN
+                        last_motion_time = time.time()
+                        baseline_updated = False
                     else:
+                        # Update baseline when scene is stable for 60s
+                        if not baseline_updated and (time.time() - last_motion_time) > 60:
+                            self._update_baseline()
+                            baseline_updated = True
+                            logger.debug("Baseline image updated")
                         time.sleep(self._capture_interval)
 
                 elif state == State.COOLDOWN:

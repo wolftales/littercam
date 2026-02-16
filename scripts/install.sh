@@ -17,8 +17,11 @@ pip install -e .[pi]
 echo "==> Creating data directory..."
 mkdir -p data/events
 
-echo "==> Downloading cat detection model..."
+echo "==> Exporting YOLOv8n cat detection model..."
+pip install ultralytics
 bash "$PROJECT_DIR/scripts/download_model.sh"
+echo "==> Cleaning up export dependencies..."
+pip uninstall -y ultralytics torch torchvision 2>/dev/null || true
 
 echo "==> Installing user systemd services..."
 mkdir -p ~/.config/systemd/user

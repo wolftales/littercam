@@ -71,21 +71,14 @@ def find_presence_window(event_path: Path) -> tuple[int, int]:
     return max(0, first - 3), min(n - 1, last + 3)
 
 
-def scan_event(event_path: Path) -> tuple[bool, float, int, int | None, int | None]:
-    """Run cat detection on frames within the presence window."""
-    images = sorted(event_path.glob("img-*.jpg"))
-    if not images:
-        return False, 0.0, 0, None, None
-
-    start, end = find_presence_window(event_path)
-    candidates = images[start:end + 1]
-
+def scan_frames(images: list[Path], start: int, end: int) -> tuple[float, int, int | None, int | None]:
+    """Run YOLO on images[start:end+1]. Returns (max_confidence, count, first, last)."""
     max_confidence = 0.0
     detection_count = 0
     first_cat = None
     last_cat = None
 
-    for i, img_path in enumerate(candidates):
+    for i, img_path in enumerate(images[start:end + 1]):
         frame_idx = start + i
         img = Image.open(img_path).convert("RGB")
         frame = np.array(img)
@@ -99,7 +92,36 @@ def scan_event(event_path: Path) -> tuple[bool, float, int, int | None, int | No
                 first_cat = frame_idx
             last_cat = frame_idx
 
-    return detection_count > 0, max_confidence, detection_count, first_cat, last_cat
+    return max_confidence, detection_count, first_cat, last_cat
+
+
+def scan_event(event_path: Path) -> tuple[bool, float, int, int | None, int | None]:
+    """Run cat detection on frames within the presence window.
+
+    Extends past the window if cat was still present at the tail (not leaving).
+    """
+    images = sorted(event_path.glob("img-*.jpg"))
+    if not images:
+        return False, 0.0, 0, None, None
+
+    n = len(images)
+    start, end = find_presence_window(event_path)
+
+    # Phase 1: scan presence window
+    max_conf, det_count, first_cat, last_cat = scan_frames(images, start, end)
+
+    # Phase 2: extend if cat still present at tail of window (not leaving)
+    if det_count > 0 and last_cat is not None and end < n - 1:
+        cat_at_tail = last_cat >= end - 2
+        if cat_at_tail:
+            ext_conf, ext_count, _, ext_last = scan_frames(images, end + 1, n - 1)
+            det_count += ext_count
+            if ext_conf > max_conf:
+                max_conf = ext_conf
+            if ext_last is not None:
+                last_cat = ext_last
+
+    return det_count > 0, max_conf, det_count, first_cat, last_cat
 
 
 events = list_events(cfg.capture.output_root)

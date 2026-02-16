@@ -123,29 +123,16 @@ class CaptureService:
         last = min(n - 1, last + 3)
         return first, last
 
-    def _scan_for_cats(self, event_path: Path) -> tuple[bool, float, int, int | None, int | None]:
-        """Post-capture cat detection using baseline-guided presence window.
-
-        Returns (cat_detected, max_confidence, detection_count, first_cat_frame, last_cat_frame).
-        """
+    def _scan_frames_for_cats(
+        self, images: list[Path], start: int, end: int,
+    ) -> tuple[float, int, int | None, int | None]:
+        """Run YOLO on images[start:end+1]. Returns (max_confidence, count, first, last)."""
         max_confidence = 0.0
         detection_count = 0
         first_cat_frame = None
         last_cat_frame = None
 
-        images = sorted(event_path.glob("img-*.jpg"))
-        if not images:
-            return False, 0.0, 0, None, None
-
-        # Use baseline to find when something was in the scene
-        start, end = self._find_presence_window(event_path)
-        candidates = images[start:end + 1]
-
-        logger.info(
-            "Presence window: frames %d-%d (%d/%d). Scanning for cats...",
-            start, end, len(candidates), len(images),
-        )
-        for i, img_path in enumerate(candidates):
+        for i, img_path in enumerate(images[start:end + 1]):
             frame_idx = start + i
             img = Image.open(img_path).convert("RGB")
             frame = np.array(img)
@@ -160,18 +147,80 @@ class CaptureService:
                     first_cat_frame = frame_idx
                 last_cat_frame = frame_idx
 
-        cat_detected = detection_count > 0
+        return max_confidence, detection_count, first_cat_frame, last_cat_frame
+
+    def _scan_for_cats(self, event_path: Path) -> tuple[bool, float, int, int | None, int | None]:
+        """Post-capture cat detection using baseline-guided presence window.
+
+        If a cat is found but not at the tail of the window (i.e. not leaving),
+        extends the scan past the presence window to catch cats sitting still.
+
+        Returns (cat_detected, max_confidence, detection_count, first_cat_frame, last_cat_frame).
+        """
+        images = sorted(event_path.glob("img-*.jpg"))
+        if not images:
+            return False, 0.0, 0, None, None
+
+        n = len(images)
+        start, end = self._find_presence_window(event_path)
+
+        logger.info(
+            "Presence window: frames %d-%d (%d/%d). Scanning for cats...",
+            start, end, end - start + 1, n,
+        )
+
+        # Phase 1: scan the presence window
+        max_conf, det_count, first_cat, last_cat = self._scan_frames_for_cats(images, start, end)
+
+        # Phase 2: if cat found but NOT at the tail (not leaving), extend scan
+        # to catch cats sitting still beyond the presence window
+        if det_count > 0 and last_cat is not None and end < n - 1:
+            cat_at_tail = last_cat >= end - 2  # cat in last 3 frames of window
+            if cat_at_tail:
+                # Cat still present at end of presence window — scan remaining frames
+                ext_start = end + 1
+                ext_end = n - 1
+                logger.info(
+                    "Cat still present at frame %d (window end %d). "
+                    "Extending scan: frames %d-%d (%d extra frames)",
+                    last_cat, end, ext_start, ext_end, ext_end - ext_start + 1,
+                )
+                ext_conf, ext_count, _, ext_last = self._scan_frames_for_cats(
+                    images, ext_start, ext_end,
+                )
+                det_count += ext_count
+                if ext_conf > max_conf:
+                    max_conf = ext_conf
+                if ext_last is not None:
+                    last_cat = ext_last
+            else:
+                logger.info(
+                    "Cat last seen at frame %d, left before window end %d. No extension needed.",
+                    last_cat, end,
+                )
+
+        cat_detected = det_count > 0
         if cat_detected:
             logger.info(
                 "Cat detected in %d frames (frames %d-%d, best %.1f%%)",
-                detection_count, first_cat_frame, last_cat_frame, max_confidence * 100,
+                det_count, first_cat, last_cat, max_conf * 100,
             )
         else:
             logger.info("No cats detected in presence window")
-        return cat_detected, max_confidence, detection_count, first_cat_frame, last_cat_frame
+        return cat_detected, max_conf, det_count, first_cat, last_cat
+
+    def _load_baseline_gray(self) -> np.ndarray | None:
+        """Load baseline image as grayscale at lores resolution for presence detection."""
+        baseline_path = self._output_root / "baseline.jpg"
+        if not baseline_path.exists():
+            return None
+        ref = Image.open(baseline_path).convert("L").resize(
+            (self._motion_config.downscale_width, self._motion_config.downscale_height)
+        )
+        return np.array(ref, dtype=np.float32)
 
     def _record_event(self, trigger_score: float) -> None:
-        """Run the RECORDING state: flush pre-roll, capture with motion tracking, then scan for cats."""
+        """Run the RECORDING state: flush pre-roll, capture with motion/presence tracking, then scan for cats."""
         start_ts = datetime.now().astimezone()
         event_path = event_dir_for(start_ts, self._output_root)
         event_path.mkdir(parents=True, exist_ok=True)
@@ -186,7 +235,11 @@ class CaptureService:
             image_count += 1
         logger.info("Flushed %d pre-roll frames", len(pre_roll_frames))
 
-        # Recording loop — compare consecutive lores frames for ongoing motion
+        # Load baseline for presence detection (keeps recording while scene differs)
+        baseline_gray = self._load_baseline_gray()
+        presence_threshold = 3.0  # mean pixel diff indicating something is in the scene
+
+        # Recording loop — motion OR presence keeps recording alive
         recording_start = time.time()
         last_activity = time.time()
         prev_lores = None
@@ -210,9 +263,14 @@ class CaptureService:
             lores = self._camera.capture_lores()
             gray = self._detector._to_gray(lores)
             if prev_lores is not None:
-                score = float(np.mean(np.abs(gray - prev_lores)))
-                if score >= self._motion_threshold:
+                motion_score = float(np.mean(np.abs(gray - prev_lores)))
+                if motion_score >= self._motion_threshold:
                     last_activity = time.time()
+                elif baseline_gray is not None:
+                    # No motion, but check if something is still present vs baseline
+                    scene_diff = float(np.mean(np.abs(gray - baseline_gray)))
+                    if scene_diff >= presence_threshold:
+                        last_activity = time.time()
             prev_lores = gray
 
             time.sleep(self._capture_interval)

@@ -24,6 +24,8 @@ class EventMeta:
     cat_detected: Optional[bool] = None
     cat_confidence: Optional[float] = None
     detection_count: Optional[int] = None
+    cat_first_frame: Optional[int] = None
+    cat_last_frame: Optional[int] = None
 
     def to_json(self) -> str:
         d = asdict(self)

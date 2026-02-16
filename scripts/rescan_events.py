@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """Re-scan all events with the current cat detection model and update meta.json."""
-import json
-import logging
 import sys
+import logging
 from pathlib import Path
 
 import numpy as np
@@ -10,7 +9,7 @@ from PIL import Image
 
 from littercam.cat_detector import CatDetector
 from littercam.config import load_config
-from littercam.events import list_events, load_event, write_meta
+from littercam.events import list_events, write_meta
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(__name__)
@@ -29,45 +28,65 @@ if not detector._enabled:
     print("Cat detection is not available. Check model path and dependencies.")
     sys.exit(1)
 
+# Load baseline if available for presence window detection
+baseline_path = cfg.capture.output_root / "baseline.jpg"
+baseline_gray = None
+if baseline_path.exists():
+    baseline_gray = np.array(Image.open(baseline_path).convert("L"), dtype=np.float32)
+    print(f"Baseline loaded: {baseline_path}\n")
+else:
+    print("No baseline image found — scanning all frames per event\n")
 
-def find_interesting_frames(event_path: Path, top_n: int = 10) -> list[int]:
-    """Use cheap thumbnail diffs to find the most visually interesting frame indices."""
+
+def find_presence_window(event_path: Path) -> tuple[int, int]:
+    """Use baseline diff to find when something entered/left the scene."""
     thumbs = sorted(event_path.glob("thumb-*.jpg"))
-    if len(thumbs) <= top_n:
-        return list(range(len(thumbs)))
+    n = len(thumbs)
+    if n == 0 or baseline_gray is None:
+        return 0, max(0, n - 1)
 
-    scores: list[tuple[float, int]] = []
-    prev_gray = None
-    for i, thumb_path in enumerate(thumbs):
-        img = Image.open(thumb_path).convert("L")
+    diffs = []
+    for thumb_path in thumbs:
+        img = Image.open(thumb_path).convert("L").resize(
+            (baseline_gray.shape[1], baseline_gray.shape[0])
+        )
         gray = np.array(img, dtype=np.float32)
-        if prev_gray is not None:
-            score = float(np.mean(np.abs(gray - prev_gray)))
-            scores.append((score, i))
-        prev_gray = gray
+        diffs.append(float(np.mean(np.abs(gray - baseline_gray))))
 
-    scores.sort(reverse=True)
-    seen = set()
-    result = []
-    for _, idx in scores:
-        if idx not in seen:
-            seen.add(idx)
-            result.append(idx)
-            if len(result) >= top_n:
-                break
-    return sorted(result)
+    median_diff = sorted(diffs)[len(diffs) // 2]
+    threshold = max(median_diff * 2.0, 3.0)
+
+    first = None
+    last = None
+    for i, d in enumerate(diffs):
+        if d >= threshold:
+            if first is None:
+                first = i
+            last = i
+
+    if first is None:
+        return 0, n - 1
+
+    # Buffer of 3 frames before/after
+    return max(0, first - 3), min(n - 1, last + 3)
 
 
-def scan_event(event_path: Path) -> tuple[bool, float, int]:
-    """Run cat detection on ALL full-res frames (batch job, no time pressure)."""
+def scan_event(event_path: Path) -> tuple[bool, float, int, int | None, int | None]:
+    """Run cat detection on frames within the presence window."""
     images = sorted(event_path.glob("img-*.jpg"))
     if not images:
-        return False, 0.0, 0
+        return False, 0.0, 0, None, None
+
+    start, end = find_presence_window(event_path)
+    candidates = images[start:end + 1]
 
     max_confidence = 0.0
     detection_count = 0
+    first_cat = None
+    last_cat = None
 
-    for img_path in images:
+    for i, img_path in enumerate(candidates):
+        frame_idx = start + i
         img = Image.open(img_path).convert("RGB")
         frame = np.array(img)
         cats = detector.detect(frame)
@@ -76,8 +95,11 @@ def scan_event(event_path: Path) -> tuple[bool, float, int]:
             best = max(cats, key=lambda d: d.confidence)
             if best.confidence > max_confidence:
                 max_confidence = best.confidence
+            if first_cat is None:
+                first_cat = frame_idx
+            last_cat = frame_idx
 
-    return detection_count > 0, max_confidence, detection_count
+    return detection_count > 0, max_confidence, detection_count, first_cat, last_cat
 
 
 events = list_events(cfg.capture.output_root)
@@ -87,21 +109,26 @@ updated = 0
 detected = 0
 
 for event in events:
-    cat_detected, confidence, count = scan_event(event.event_path)
+    images = sorted(event.event_path.glob("img-*.jpg"))
+    start, end = find_presence_window(event.event_path)
+    cat_detected, confidence, count, first_frame, last_frame = scan_event(event.event_path)
 
     # Update meta
     event.meta.cat_detected = cat_detected if cat_detected else None
     event.meta.cat_confidence = round(confidence, 3) if cat_detected else None
     event.meta.detection_count = count if cat_detected else None
+    event.meta.cat_first_frame = first_frame
+    event.meta.cat_last_frame = last_frame
     if cat_detected and not event.meta.cat_tag:
         event.meta.cat_tag = "auto:cat"
 
     write_meta(event.event_path, event.meta)
     updated += 1
 
-    status = f"Cat {confidence:.0%} ({count} frames)" if cat_detected else "No cat"
-    print(f"  {event.event_id}: {status}")
     if cat_detected:
         detected += 1
+        print(f"  {event.event_id}: Cat {confidence:.0%} ({count}/{len(images)} frames, #{first_frame}-{last_frame})")
+    else:
+        print(f"  {event.event_id}: No cat (scanned {end - start + 1}/{len(images)} frames)")
 
 print(f"\nDone: {updated} events scanned, {detected} cats detected")

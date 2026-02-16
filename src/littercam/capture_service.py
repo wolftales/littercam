@@ -77,19 +77,76 @@ class CaptureService:
         thumbnail_path = event_path / f"thumb-{index:03d}.jpg"
         self._create_thumbnail(image_path, thumbnail_path)
 
-    def _scan_for_cats(self, event_path: Path) -> tuple[bool, float, int]:
-        """Post-capture cat detection: scan all full-res frames."""
+    def _find_presence_window(self, event_path: Path, threshold_mult: float = 2.0) -> tuple[int, int]:
+        """Use baseline diff to find when something entered/left the scene.
+
+        Returns (start_idx, end_idx) of the presence window, or (0, n-1) if
+        no baseline is available.
+        """
+        thumbs = sorted(event_path.glob("thumb-*.jpg"))
+        n = len(thumbs)
+        if n == 0:
+            return 0, 0
+
+        baseline_path = self._output_root / "baseline.jpg"
+        if not baseline_path.exists():
+            return 0, n - 1
+
+        # Compute diff of each thumbnail against baseline
+        ref = Image.open(baseline_path).convert("L")
+        diffs = []
+        for thumb_path in thumbs:
+            img = Image.open(thumb_path).convert("L").resize(ref.size)
+            gray = np.array(img, dtype=np.float32)
+            ref_gray = np.array(ref, dtype=np.float32)
+            diffs.append(float(np.mean(np.abs(gray - ref_gray))))
+
+        # Find frames significantly above the baseline noise
+        if not diffs:
+            return 0, n - 1
+        median_diff = sorted(diffs)[len(diffs) // 2]
+        presence_threshold = max(median_diff * threshold_mult, 3.0)
+
+        first = None
+        last = None
+        for i, d in enumerate(diffs):
+            if d >= presence_threshold:
+                if first is None:
+                    first = i
+                last = i
+
+        if first is None:
+            return 0, n - 1
+
+        # Add a small buffer (3 frames before/after)
+        first = max(0, first - 3)
+        last = min(n - 1, last + 3)
+        return first, last
+
+    def _scan_for_cats(self, event_path: Path) -> tuple[bool, float, int, int | None, int | None]:
+        """Post-capture cat detection using baseline-guided presence window.
+
+        Returns (cat_detected, max_confidence, detection_count, first_cat_frame, last_cat_frame).
+        """
         max_confidence = 0.0
         detection_count = 0
+        first_cat_frame = None
+        last_cat_frame = None
 
         images = sorted(event_path.glob("img-*.jpg"))
         if not images:
-            return False, 0.0, 0
+            return False, 0.0, 0, None, None
 
-        candidates = images
+        # Use baseline to find when something was in the scene
+        start, end = self._find_presence_window(event_path)
+        candidates = images[start:end + 1]
 
-        logger.info("Scanning %d/%d interesting frames for cats...", len(candidates), len(images))
-        for img_path in candidates:
+        logger.info(
+            "Presence window: frames %d-%d (%d/%d). Scanning for cats...",
+            start, end, len(candidates), len(images),
+        )
+        for i, img_path in enumerate(candidates):
+            frame_idx = start + i
             img = Image.open(img_path).convert("RGB")
             frame = np.array(img)
             cats = self._cat_detector.detect(frame)
@@ -99,16 +156,19 @@ class CaptureService:
                 logger.info("Cat in %s: %.1f%%", img_path.name, best.confidence * 100)
                 if best.confidence > max_confidence:
                     max_confidence = best.confidence
+                if first_cat_frame is None:
+                    first_cat_frame = frame_idx
+                last_cat_frame = frame_idx
 
         cat_detected = detection_count > 0
         if cat_detected:
             logger.info(
-                "Cat detected in %d/%d frames (best %.1f%%)",
-                detection_count, len(thumbs), max_confidence * 100,
+                "Cat detected in %d frames (frames %d-%d, best %.1f%%)",
+                detection_count, first_cat_frame, last_cat_frame, max_confidence * 100,
             )
         else:
-            logger.info("No cats detected")
-        return cat_detected, max_confidence, detection_count
+            logger.info("No cats detected in presence window")
+        return cat_detected, max_confidence, detection_count, first_cat_frame, last_cat_frame
 
     def _record_event(self, trigger_score: float) -> None:
         """Run the RECORDING state: flush pre-roll, capture with motion tracking, then scan for cats."""
@@ -159,8 +219,8 @@ class CaptureService:
 
         end_ts = datetime.now().astimezone()
 
-        # Post-capture: scan thumbnails for cats
-        cat_detected, max_confidence, detection_count = self._scan_for_cats(event_path)
+        # Post-capture: baseline-guided cat detection
+        cat_detected, max_confidence, detection_count, first_frame, last_frame = self._scan_for_cats(event_path)
 
         meta = EventMeta(
             start_ts=start_ts.isoformat(),
@@ -171,6 +231,8 @@ class CaptureService:
             cat_detected=cat_detected if cat_detected else None,
             cat_confidence=round(max_confidence, 3) if cat_detected else None,
             detection_count=detection_count if cat_detected else None,
+            cat_first_frame=first_frame,
+            cat_last_frame=last_frame,
         )
         write_meta(event_path, meta)
         logger.info(

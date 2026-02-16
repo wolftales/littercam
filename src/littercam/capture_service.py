@@ -77,12 +77,17 @@ class CaptureService:
         thumbnail_path = event_path / f"thumb-{index:03d}.jpg"
         self._create_thumbnail(image_path, thumbnail_path)
 
-    def _find_interesting_frames(self, event_path: Path, top_n: int = 10) -> list[int]:
-        """Use cheap thumbnail diffs to find the most visually interesting frame indices."""
+    def _select_scan_frames(self, event_path: Path, max_frames: int = 20) -> list[int]:
+        """Select frames to scan: mix of motion-picked + evenly sampled."""
         thumbs = sorted(event_path.glob("thumb-*.jpg"))
-        if len(thumbs) <= top_n:
-            return list(range(len(thumbs)))
+        n = len(thumbs)
+        if n <= max_frames:
+            return list(range(n))
 
+        selected = set()
+
+        # Half from motion scoring (most visually interesting)
+        motion_budget = max_frames // 2
         scores: list[tuple[float, int]] = []
         prev_gray = None
         for i, thumb_path in enumerate(thumbs):
@@ -107,20 +112,24 @@ class CaptureService:
                 diff = float(np.mean(np.abs(gray - baseline_gray)))
                 scores.append((diff, i))
 
-        # Pick top_n unique indices with highest scores
         scores.sort(reverse=True)
-        seen = set()
-        result = []
         for _, idx in scores:
-            if idx not in seen:
-                seen.add(idx)
-                result.append(idx)
-                if len(result) >= top_n:
-                    break
-        return sorted(result)
+            if len(selected) >= motion_budget:
+                break
+            selected.add(idx)
+
+        # Other half evenly sampled across the event
+        even_budget = max_frames - len(selected)
+        step = max(1, n // (even_budget + 1))
+        for i in range(0, n, step):
+            selected.add(i)
+            if len(selected) >= max_frames:
+                break
+
+        return sorted(selected)
 
     def _scan_for_cats(self, event_path: Path) -> tuple[bool, float, int]:
-        """Post-capture cat detection: triage with thumbnails, detect on full-res."""
+        """Post-capture cat detection: mixed frame selection, detect on full-res."""
         max_confidence = 0.0
         detection_count = 0
 
@@ -128,9 +137,9 @@ class CaptureService:
         if not images:
             return False, 0.0, 0
 
-        # Use thumbnail diffs to find interesting frames, then detect on full-res
-        interesting = self._find_interesting_frames(event_path)
-        candidates = [images[i] for i in interesting if i < len(images)]
+        # Mix of motion-picked + evenly sampled frames
+        selected = self._select_scan_frames(event_path)
+        candidates = [images[i] for i in selected if i < len(images)]
 
         logger.info("Scanning %d/%d interesting frames for cats...", len(candidates), len(images))
         for img_path in candidates:

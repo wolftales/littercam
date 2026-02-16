@@ -59,18 +59,15 @@ def find_interesting_frames(event_path: Path, top_n: int = 10) -> list[int]:
 
 
 def scan_event(event_path: Path) -> tuple[bool, float, int]:
-    """Run cat detection on the most interesting full-res frames."""
+    """Run cat detection on ALL full-res frames (batch job, no time pressure)."""
     images = sorted(event_path.glob("img-*.jpg"))
     if not images:
         return False, 0.0, 0
 
-    interesting = find_interesting_frames(event_path)
-    candidates = [images[i] for i in interesting if i < len(images)]
-
     max_confidence = 0.0
     detection_count = 0
 
-    for img_path in candidates:
+    for img_path in images:
         img = Image.open(img_path).convert("RGB")
         frame = np.array(img)
         cats = detector.detect(frame)

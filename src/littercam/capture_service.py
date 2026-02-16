@@ -77,59 +77,8 @@ class CaptureService:
         thumbnail_path = event_path / f"thumb-{index:03d}.jpg"
         self._create_thumbnail(image_path, thumbnail_path)
 
-    def _select_scan_frames(self, event_path: Path, max_frames: int = 20) -> list[int]:
-        """Select frames to scan: mix of motion-picked + evenly sampled."""
-        thumbs = sorted(event_path.glob("thumb-*.jpg"))
-        n = len(thumbs)
-        if n <= max_frames:
-            return list(range(n))
-
-        selected = set()
-
-        # Half from motion scoring (most visually interesting)
-        motion_budget = max_frames // 2
-        scores: list[tuple[float, int]] = []
-        prev_gray = None
-        for i, thumb_path in enumerate(thumbs):
-            img = Image.open(thumb_path).convert("L")
-            gray = np.array(img, dtype=np.float32)
-            if prev_gray is not None:
-                score = float(np.mean(np.abs(gray - prev_gray)))
-                scores.append((score, i))
-            prev_gray = gray
-
-        # Also compare against baseline if available
-        baseline_path = self._output_root / "baseline.jpg"
-        if baseline_path.exists():
-            baseline_gray = np.array(
-                Image.open(baseline_path).convert("L").resize(
-                    (gray.shape[1], gray.shape[0])
-                ), dtype=np.float32
-            )
-            for i, thumb_path in enumerate(thumbs):
-                img = Image.open(thumb_path).convert("L")
-                gray = np.array(img, dtype=np.float32)
-                diff = float(np.mean(np.abs(gray - baseline_gray)))
-                scores.append((diff, i))
-
-        scores.sort(reverse=True)
-        for _, idx in scores:
-            if len(selected) >= motion_budget:
-                break
-            selected.add(idx)
-
-        # Other half evenly sampled across the event
-        even_budget = max_frames - len(selected)
-        step = max(1, n // (even_budget + 1))
-        for i in range(0, n, step):
-            selected.add(i)
-            if len(selected) >= max_frames:
-                break
-
-        return sorted(selected)
-
     def _scan_for_cats(self, event_path: Path) -> tuple[bool, float, int]:
-        """Post-capture cat detection: mixed frame selection, detect on full-res."""
+        """Post-capture cat detection: scan all full-res frames."""
         max_confidence = 0.0
         detection_count = 0
 
@@ -137,9 +86,7 @@ class CaptureService:
         if not images:
             return False, 0.0, 0
 
-        # Mix of motion-picked + evenly sampled frames
-        selected = self._select_scan_frames(event_path)
-        candidates = [images[i] for i in selected if i < len(images)]
+        candidates = images
 
         logger.info("Scanning %d/%d interesting frames for cats...", len(candidates), len(images))
         for img_path in candidates:

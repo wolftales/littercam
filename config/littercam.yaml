@@ -57,7 +57,8 @@ cat_detection:
   labels_path: ./models/coco_labels.txt
 
   # Minimum confidence for a cat detection (0.0-1.0)
-  confidence_threshold: 0.5
+  # 0.3 works well for 320x240 thumbnails
+  confidence_threshold: 0.3
 
 retention:
   # Automatically delete events older than this many days

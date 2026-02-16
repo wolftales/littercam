@@ -6,10 +6,12 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 
+import numpy as np
 from fastapi import FastAPI, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from PIL import Image
 
 from littercam.config import AppConfig, load_config
 from littercam.events import Event, load_event, latest_event, list_events, write_meta
@@ -63,17 +65,44 @@ def _event_thumbs(event: Event) -> List[Path]:
     return thumbs if thumbs else _event_images(event)
 
 
+def _best_frame_index(event_path: Path) -> Optional[int]:
+    """Find the most visually interesting frame by diffing consecutive thumbnails."""
+    thumbs = sorted(event_path.glob("thumb-*.jpg"))
+    if not thumbs:
+        return None
+    if len(thumbs) <= 2:
+        return 0
+
+    best_idx = 0
+    best_score = 0.0
+    prev_gray = None
+
+    for i, thumb_path in enumerate(thumbs):
+        img = Image.open(thumb_path).convert("L")
+        gray = np.array(img, dtype=np.float32)
+        if prev_gray is not None:
+            score = float(np.mean(np.abs(gray - prev_gray)))
+            if score > best_score:
+                best_score = score
+                best_idx = i
+        prev_gray = gray
+
+    return best_idx
+
+
 def _best_thumb(event: Event) -> Optional[str]:
-    """Pick the middle thumbnail as the representative frame for an event."""
+    """Pick the most visually interesting thumbnail for an event."""
     thumbs = sorted(event.event_path.glob("thumb-*.jpg"))
     if not thumbs:
         images = sorted(event.event_path.glob("img-*.jpg"))
         if not images:
             return None
-        mid = images[len(images) // 2]
-        return f"/data/{event.date}/event-{event.event_id}/{mid.name}"
-    mid = thumbs[len(thumbs) // 2]
-    return f"/data/{event.date}/event-{event.event_id}/{mid.name}"
+        idx = _best_frame_index(event.event_path)
+        pick = images[idx] if idx is not None else images[0]
+        return f"/data/{event.date}/event-{event.event_id}/{pick.name}"
+    idx = _best_frame_index(event.event_path)
+    pick = thumbs[idx] if idx is not None else thumbs[0]
+    return f"/data/{event.date}/event-{event.event_id}/{pick.name}"
 
 
 def _find_event(event_id: str) -> Optional[Event]:
@@ -131,16 +160,18 @@ async def highlights(request: Request) -> HTMLResponse:
     all_events = list_events(config.capture.output_root)
     cards = []
     for event in all_events:
-        thumb = _best_thumb(event)
-        if not thumb:
+        idx = _best_frame_index(event.event_path)
+        if idx is None:
             continue
-        # Use the full-res image at the same index for the highlights view
         images = sorted(event.event_path.glob("img-*.jpg"))
+        thumbs = sorted(event.event_path.glob("thumb-*.jpg"))
         if images:
-            mid = images[len(images) // 2]
-            hero = f"/data/{event.date}/event-{event.event_id}/{mid.name}"
+            hero = f"/data/{event.date}/event-{event.event_id}/{images[idx].name}"
+        elif thumbs:
+            hero = f"/data/{event.date}/event-{event.event_id}/{thumbs[idx].name}"
         else:
-            hero = thumb
+            continue
+        thumb = f"/data/{event.date}/event-{event.event_id}/{(thumbs or images)[idx].name}"
         cards.append({"event": event, "thumb": thumb, "hero": hero})
     return TEMPLATES.TemplateResponse(
         "highlights.html", {"request": request, "cards": cards}

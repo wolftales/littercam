@@ -88,12 +88,13 @@ class CaptureService:
 
         logger.info("Scanning %d thumbnails for cats...", len(thumbs))
         for thumb_path in thumbs:
-            img = Image.open(thumb_path)
+            img = Image.open(thumb_path).convert("RGB")
             frame = np.array(img)
             cats = self._cat_detector.detect(frame)
             if cats:
                 detection_count += 1
                 best = max(cats, key=lambda d: d.confidence)
+                logger.info("Cat in %s: %.1f%%", thumb_path.name, best.confidence * 100)
                 if best.confidence > max_confidence:
                     max_confidence = best.confidence
 
@@ -123,9 +124,10 @@ class CaptureService:
             image_count += 1
         logger.info("Flushed %d pre-roll frames", len(pre_roll_frames))
 
-        # Recording loop — motion only, no cat detection
+        # Recording loop — compare consecutive lores frames for ongoing motion
         recording_start = time.time()
         last_activity = time.time()
+        prev_lores = None
 
         while True:
             elapsed = time.time() - recording_start
@@ -142,11 +144,14 @@ class CaptureService:
             self._save_jpeg(event_path, image_count, jpeg)
             image_count += 1
 
-            # Check motion on lores frame
+            # Check motion by comparing consecutive lores frames
             lores = self._camera.capture_lores()
-            score = self._detector.current_score(lores)
-            if score >= self._motion_threshold:
-                last_activity = time.time()
+            gray = self._detector._to_gray(lores)
+            if prev_lores is not None:
+                score = float(np.mean(np.abs(gray - prev_lores)))
+                if score >= self._motion_threshold:
+                    last_activity = time.time()
+            prev_lores = gray
 
             time.sleep(self._capture_interval)
 

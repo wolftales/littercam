@@ -75,7 +75,16 @@ class CatDetector:
         h = raw_shape[1] if isinstance(raw_shape[1], int) else 300
         w = raw_shape[2] if isinstance(raw_shape[2], int) else 300
         self._input_shape = (h, w)
-        logger.info("Cat detector loaded: %s (input %s)", model_path, self._input_shape)
+        # Map outputs by name for reliable access across model versions
+        self._output_map = {
+            out.name.split(":")[0]: i
+            for i, out in enumerate(self._session.get_outputs())
+        }
+        output_names = [out.name for out in self._session.get_outputs()]
+        logger.info(
+            "Cat detector loaded: %s (input %s, outputs %s)",
+            model_path, self._input_shape, output_names,
+        )
 
     @staticmethod
     def _load_labels(path: Path) -> dict[int, str]:
@@ -109,21 +118,33 @@ class CatDetector:
 
         outputs = self._session.run(None, {self._input_name: input_data})
 
-        # SSD MobileNet v1 ONNX outputs: boxes, classes, scores, num_detections
-        boxes = outputs[0][0]
-        classes = outputs[1][0]
-        scores = outputs[2][0]
+        # Map outputs by name — different ONNX models order them differently
+        om = self._output_map
+        boxes_idx = om.get("detection_boxes", 0)
+        classes_idx = om.get("detection_classes", 1)
+        scores_idx = om.get("detection_scores", 2)
+        num_idx = om.get("num_detections", 3)
+
+        boxes = outputs[boxes_idx][0]
+        classes = outputs[classes_idx][0]
+        scores = outputs[scores_idx][0]
+        num = int(outputs[num_idx][0]) if num_idx < len(outputs) else len(scores)
 
         detections: list[Detection] = []
-        for i, score in enumerate(scores):
+        for i in range(min(num, len(scores))):
+            score = float(scores[i])
             class_id = int(classes[i])
+            if score < 0.1:
+                continue
+            label = self._labels.get(class_id, f"class_{class_id}")
+            if score >= 0.2:
+                logger.debug("Detection: %s (id=%d) %.1f%%", label, class_id, score * 100)
             if class_id == CAT_CLASS_ID and score >= self._threshold:
-                label = self._labels.get(class_id, "cat")
                 detections.append(
                     Detection(
                         class_id=class_id,
                         label=label,
-                        confidence=float(score),
+                        confidence=score,
                         bbox=tuple(boxes[i]),
                     )
                 )

@@ -9,7 +9,7 @@
       <p>No events yet.</p>
     {% endif %}
     {% for date, events in grouped.items() %}
-      <h3>{{ date }}</h3>
+      <h3 id="date-{{ date }}">{{ date | date_label }}</h3>
       <ul class="event-list">
         {% for event in events %}
           <li>

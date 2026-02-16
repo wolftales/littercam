@@ -41,8 +41,18 @@ def format_datetime(iso_str: str) -> str:
         return iso_str
 
 
+def format_date_label(date_str: str) -> str:
+    """Format date like '2026-02-16' to 'Feb 16'."""
+    try:
+        dt = datetime.strptime(date_str, "%Y-%m-%d")
+        return dt.strftime("%b %-d")
+    except ValueError:
+        return date_str
+
+
 TEMPLATES.env.filters["event_time"] = format_event_time
 TEMPLATES.env.filters["datetime"] = format_datetime
+TEMPLATES.env.filters["date_label"] = format_date_label
 
 app.mount(
     "/data",
@@ -195,7 +205,19 @@ async def events(request: Request) -> HTMLResponse:
 
 @app.get("/events/{event_id}", response_class=HTMLResponse)
 async def event_detail(request: Request, event_id: str) -> HTMLResponse:
-    event = _find_event(event_id)
+    all_events = list_events(config.capture.output_root)
+    event = None
+    prev_event = None
+    next_event = None
+    for i, e in enumerate(all_events):
+        if e.event_id == event_id:
+            event = e
+            # Events are sorted newest-first, so "next" is older (i+1), "prev" is newer (i-1)
+            if i > 0:
+                next_event = all_events[i - 1]
+            if i < len(all_events) - 1:
+                prev_event = all_events[i + 1]
+            break
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
     thumbs = _event_thumbs(event)
@@ -207,6 +229,8 @@ async def event_detail(request: Request, event_id: str) -> HTMLResponse:
             "event": event,
             "thumbs": thumbs,
             "images": images,
+            "prev_event": prev_event,
+            "next_event": next_event,
         },
     )
 

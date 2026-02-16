@@ -1,7 +1,31 @@
 {% extends "base.html" %}
 {% block content %}
+  <nav class="breadcrumb">
+    <a href="/events">Events</a>
+    <span class="breadcrumb-sep">&rsaquo;</span>
+    <a href="/events#date-{{ event.date }}">{{ event.date | date_label }}</a>
+    <span class="breadcrumb-sep">&rsaquo;</span>
+    <span>{{ event.event_id | event_time }}</span>
+  </nav>
+
+  <div class="event-nav">
+    {% if prev_event %}
+      <a href="/events/{{ prev_event.event_id }}" class="event-nav-btn" title="Older event">
+        &larr; {{ prev_event.event_id | event_time }}
+      </a>
+    {% else %}
+      <span class="event-nav-btn event-nav-disabled">&larr; Oldest</span>
+    {% endif %}
+    {% if next_event %}
+      <a href="/events/{{ next_event.event_id }}" class="event-nav-btn" title="Newer event">
+        {{ next_event.event_id | event_time }} &rarr;
+      </a>
+    {% else %}
+      <span class="event-nav-btn event-nav-disabled">Newest &rarr;</span>
+    {% endif %}
+  </div>
+
   <section class="panel">
-    <h2>{{ event.event_id | event_time }}</h2>
     <p>Start: {{ event.meta.start_ts | datetime }}</p>
     <p>End: {{ event.meta.end_ts | datetime }}</p>
     <p>Trigger score: {{ "%.2f"|format(event.meta.trigger_score) }}</p>
@@ -124,10 +148,11 @@
 
     document.addEventListener('keydown', (e) => {
       const lightbox = document.getElementById('lightbox');
-      if (!lightbox.classList.contains('active')) return;
-      if (e.key === 'Escape') closeLightbox();
-      if (e.key === 'ArrowLeft') navigate(-1);
-      if (e.key === 'ArrowRight') navigate(1);
+      if (lightbox.classList.contains('active')) {
+        if (e.key === 'Escape') closeLightbox();
+        if (e.key === 'ArrowLeft') navigate(-1);
+        if (e.key === 'ArrowRight') navigate(1);
+      }
     });
   </script>
 {% endblock %}

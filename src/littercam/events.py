@@ -89,9 +89,35 @@ def write_meta(event_path: Path, meta: EventMeta) -> None:
     meta_path.write_text(meta.to_json())
 
 
+def _should_keep(event_dir: Path) -> bool:
+    """Check if an event should be preserved from pruning."""
+    event = load_event(event_dir)
+    if event is None:
+        return False
+    # Keep events with detected cats
+    if event.meta.cat_detected:
+        return True
+    # Keep events manually tagged
+    if event.meta.cat_tag and event.meta.cat_tag != "auto:cat":
+        return True
+    return False
+
+
+def _remove_event_dir(event_dir: Path) -> None:
+    """Remove an event directory and all its contents."""
+    for item in event_dir.rglob("*"):
+        if item.is_file():
+            item.unlink()
+    for subdir in sorted(event_dir.rglob("*"), reverse=True):
+        if subdir.is_dir():
+            subdir.rmdir()
+    event_dir.rmdir()
+
+
 def prune_events(output_root: Path, days_to_keep: int) -> list[Path]:
     """Prune events older than the retention window.
 
+    Preserves events with cat detections or manual tags.
     Returns a list of removed paths.
     """
     removed: list[Path] = []
@@ -110,14 +136,11 @@ def prune_events(output_root: Path, days_to_keep: int) -> list[Path]:
         if date < cutoff:
             for event_dir in date_dir.iterdir():
                 if event_dir.is_dir():
+                    if _should_keep(event_dir):
+                        logger.info("Keeping %s (cat/tagged)", event_dir.name)
+                        continue
                     removed.append(event_dir)
-                    for item in event_dir.rglob("*"):
-                        if item.is_file():
-                            item.unlink()
-                    for subdir in sorted(event_dir.rglob("*"), reverse=True):
-                        if subdir.is_dir():
-                            subdir.rmdir()
-                    event_dir.rmdir()
+                    _remove_event_dir(event_dir)
             if not any(date_dir.iterdir()):
                 date_dir.rmdir()
     return removed

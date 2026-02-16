@@ -30,14 +30,8 @@
     <p>End: {{ event.meta.end_ts | datetime }}</p>
     <p>Trigger score: {{ "%.2f"|format(event.meta.trigger_score) }}</p>
     <p>Images: {{ event.meta.image_count }}</p>
-    {% if event.meta.cat_detected is not none %}
-      <p>Cat detected:
-        {% if event.meta.cat_detected %}
-          Yes ({{ "%.1f"|format(event.meta.cat_confidence * 100) }}% confidence, {{ event.meta.detection_count }} frames)
-        {% else %}
-          No
-        {% endif %}
-      </p>
+    {% if event.meta.cat_detected %}
+      <p>&#128049; Cat detected: {{ "%.1f"|format(event.meta.cat_confidence * 100) }}% confidence, {{ event.meta.detection_count }} frames</p>
     {% endif %}
     <form method="post" action="/events/{{ event.event_id }}/tag" class="tag-form">
       <label for="cat_tag">Tag:</label>

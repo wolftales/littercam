@@ -11,7 +11,7 @@
       <p>
         {{ event.event_id | event_time }} &mdash; {{ event.meta.start_ts | datetime }}
         {% if event.meta.cat_detected %}
-          <span class="tag tag-cat">Cat ({{ "%.0f"|format(event.meta.cat_confidence * 100) }}%)</span>
+          <span class="tag tag-cat">&#128049; {{ "%.0f"|format(event.meta.cat_confidence * 100) }}%</span>
         {% endif %}
       </p>
       {% if first_image %}

@@ -47,8 +47,8 @@ capture:
   jpeg_quality: 85
 
   # Camera orientation (set both true if image is upside down)
-  vflip: true
-  hflip: true
+  vflip: false
+  hflip: false
 
 cat_detection:
   # Enable cat detection via ONNX Runtime (requires model files)

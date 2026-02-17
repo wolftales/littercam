@@ -12,6 +12,8 @@
         {{ event.event_id | event_time }} &mdash; {{ event.meta.start_ts | datetime }}
         {% if event.meta.cat_detected %}
           <span class="tag tag-cat">&#128049; {{ "%.0f"|format(event.meta.cat_confidence * 100) }}%</span>
+        {% elif event.meta.cat_tag == "auto:presence" %}
+          <span class="tag tag-presence">&#128062; Presence</span>
         {% endif %}
       </p>
       {% if first_image %}

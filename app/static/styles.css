@@ -101,6 +101,11 @@ body {
   color: #92400e;
 }
 
+.tag-presence {
+  background: #ede9fe;
+  color: #5b21b6;
+}
+
 .gallery {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));

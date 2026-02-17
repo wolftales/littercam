@@ -96,11 +96,11 @@ def _should_keep(event_dir: Path) -> bool:
     event = load_event(event_dir)
     if event is None:
         return False
-    # Keep events with detected cats
+    # Keep events with YOLO-confirmed cats
     if event.meta.cat_detected:
         return True
-    # Keep events manually tagged
-    if event.meta.cat_tag and event.meta.cat_tag != "auto:cat":
+    # Keep events with presence detection (likely cat) or manual tags
+    if event.meta.cat_tag:
         return True
     return False
 

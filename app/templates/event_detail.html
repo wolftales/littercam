@@ -32,6 +32,8 @@
     <p>Images: {{ event.meta.image_count }}</p>
     {% if event.meta.cat_detected %}
       <p>&#128049; Cat detected: {{ "%.1f"|format(event.meta.cat_confidence * 100) }}% confidence, {{ event.meta.detection_count }} frames</p>
+    {% elif event.meta.cat_tag == "auto:presence" %}
+      <p>&#128062; Presence detected (likely cat, not confirmed by model)</p>
     {% endif %}
     <form method="post" action="/events/{{ event.event_id }}/tag" class="tag-form">
       <label for="cat_tag">Tag:</label>

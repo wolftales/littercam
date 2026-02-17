@@ -17,7 +17,7 @@ pip install -e .[pi]
 echo "==> Creating data directory..."
 mkdir -p data/events
 
-echo "==> Exporting YOLOv8n cat detection model..."
+echo "==> Exporting YOLOv8s cat detection model..."
 pip install ultralytics
 bash "$PROJECT_DIR/scripts/download_model.sh"
 echo "==> Cleaning up export dependencies..."

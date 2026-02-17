@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
-# Export YOLOv8n to ONNX format for cat detection.
+# Export YOLOv8s to ONNX format for cat detection.
+#
+# YOLOv8s is larger than YOLOv8n (~22MB vs ~6MB) but significantly better
+# at detecting difficult cases (e.g. black cat in black litter box).
+# Post-capture scanning isn't time-critical so the extra ~50ms is fine.
 #
 # Requires: pip install ultralytics (one-time, pulls in torch)
 # At runtime only onnxruntime is needed — ultralytics/torch can be removed after export.
@@ -8,22 +12,22 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 MODEL_DIR="models"
-MODEL_FILE="$MODEL_DIR/yolov8n.onnx"
+MODEL_FILE="$MODEL_DIR/yolov8s.onnx"
 
 mkdir -p "$MODEL_DIR"
 
 if [ -f "$MODEL_FILE" ]; then
   echo "Model already exists at $MODEL_FILE"
 else
-  echo "==> Exporting YOLOv8n to ONNX..."
+  echo "==> Exporting YOLOv8s to ONNX..."
   echo "    (requires: pip install ultralytics)"
   python3 -c "
 from ultralytics import YOLO
-model = YOLO('yolov8n.pt')
+model = YOLO('yolov8s.pt')
 model.export(format='onnx', imgsz=640, simplify=True)
 import shutil, os
-shutil.move('yolov8n.onnx', '$MODEL_FILE')
-for f in ['yolov8n.pt']:
+shutil.move('yolov8s.onnx', '$MODEL_FILE')
+for f in ['yolov8s.pt']:
     if os.path.exists(f):
         os.remove(f)
 "

@@ -38,12 +38,12 @@ else:
     print("No baseline image found — scanning all frames per event\n")
 
 
-def find_presence_window(event_path: Path) -> tuple[int, int]:
+def find_presence_window(event_path: Path) -> tuple[int, int, bool]:
     """Use baseline diff to find when something entered/left the scene."""
     thumbs = sorted(event_path.glob("thumb-*.jpg"))
     n = len(thumbs)
     if n == 0 or baseline_gray is None:
-        return 0, max(0, n - 1)
+        return 0, max(0, n - 1), False
 
     diffs = []
     for thumb_path in thumbs:
@@ -65,10 +65,10 @@ def find_presence_window(event_path: Path) -> tuple[int, int]:
             last = i
 
     if first is None:
-        return 0, n - 1
+        return 0, n - 1, False
 
     # Buffer of 3 frames before/after
-    return max(0, first - 3), min(n - 1, last + 3)
+    return max(0, first - 3), min(n - 1, last + 3), True
 
 
 def scan_frames(images: list[Path], start: int, end: int) -> tuple[float, int, int | None, int | None]:
@@ -95,17 +95,18 @@ def scan_frames(images: list[Path], start: int, end: int) -> tuple[float, int, i
     return max_confidence, detection_count, first_cat, last_cat
 
 
-def scan_event(event_path: Path) -> tuple[bool, float, int, int | None, int | None]:
+def scan_event(event_path: Path) -> tuple[bool, float, int, int | None, int | None, bool]:
     """Run cat detection on frames within the presence window.
 
     Extends past the window if cat was still present at the tail (not leaving).
+    Returns (cat_detected, max_conf, count, first, last, presence_detected).
     """
     images = sorted(event_path.glob("img-*.jpg"))
     if not images:
-        return False, 0.0, 0, None, None
+        return False, 0.0, 0, None, None, False
 
     n = len(images)
-    start, end = find_presence_window(event_path)
+    start, end, presence = find_presence_window(event_path)
 
     # Phase 1: scan presence window
     max_conf, det_count, first_cat, last_cat = scan_frames(images, start, end)
@@ -121,7 +122,7 @@ def scan_event(event_path: Path) -> tuple[bool, float, int, int | None, int | No
             if ext_last is not None:
                 last_cat = ext_last
 
-    return det_count > 0, max_conf, det_count, first_cat, last_cat
+    return det_count > 0, max_conf, det_count, first_cat, last_cat, presence
 
 
 events = list_events(cfg.capture.output_root)
@@ -130,10 +131,11 @@ print(f"Found {len(events)} events to scan\n")
 updated = 0
 detected = 0
 
+presence_count = 0
+
 for event in events:
     images = sorted(event.event_path.glob("img-*.jpg"))
-    start, end = find_presence_window(event.event_path)
-    cat_detected, confidence, count, first_frame, last_frame = scan_event(event.event_path)
+    cat_detected, confidence, count, first_frame, last_frame, presence = scan_event(event.event_path)
 
     # Update meta
     event.meta.cat_detected = cat_detected if cat_detected else None
@@ -141,8 +143,14 @@ for event in events:
     event.meta.detection_count = count if cat_detected else None
     event.meta.cat_first_frame = first_frame
     event.meta.cat_last_frame = last_frame
-    if cat_detected and not event.meta.cat_tag:
-        event.meta.cat_tag = "auto:cat"
+
+    # Tag: YOLO confirmed > presence only > preserve existing manual tags
+    if cat_detected:
+        if not event.meta.cat_tag or event.meta.cat_tag in ("auto:cat", "auto:presence"):
+            event.meta.cat_tag = "auto:cat"
+    elif presence:
+        if not event.meta.cat_tag or event.meta.cat_tag == "auto:presence":
+            event.meta.cat_tag = "auto:presence"
 
     write_meta(event.event_path, event.meta)
     updated += 1
@@ -150,7 +158,10 @@ for event in events:
     if cat_detected:
         detected += 1
         print(f"  {event.event_id}: Cat {confidence:.0%} ({count}/{len(images)} frames, #{first_frame}-{last_frame})")
+    elif presence:
+        presence_count += 1
+        print(f"  {event.event_id}: Presence detected (no YOLO cat, {len(images)} frames)")
     else:
-        print(f"  {event.event_id}: No cat (scanned {end - start + 1}/{len(images)} frames)")
+        print(f"  {event.event_id}: No cat, no presence ({len(images)} frames)")
 
-print(f"\nDone: {updated} events scanned, {detected} cats detected")
+print(f"\nDone: {updated} events scanned, {detected} cats confirmed, {presence_count} presence-only")

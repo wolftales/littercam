@@ -17,6 +17,8 @@
               <span class="card-date">{{ card.event.date }}</span>
               {% if card.event.meta.cat_detected %}
                 <span class="tag tag-cat">&#128049;</span>
+              {% elif card.event.meta.cat_tag == "auto:presence" %}
+                <span class="tag tag-presence">&#128062;</span>
               {% endif %}
               <span class="card-frames">{{ card.event.meta.image_count }} frames</span>
             </div>

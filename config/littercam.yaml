@@ -50,14 +50,14 @@ cat_detection:
   # Enable cat detection via ONNX Runtime (requires model files)
   enabled: true
 
-  # Path to YOLOv8n ONNX model
-  model_path: ./models/yolov8n.onnx
+  # Path to YOLOv8s ONNX model (better than yolov8n for difficult cases)
+  model_path: ./models/yolov8s.onnx
 
   # Path to COCO labels file
   labels_path: ./models/coco_labels.txt
 
   # Minimum confidence for a cat detection (0.0-1.0)
-  # 0.3 works well for 320x240 thumbnails
+  # 0.3 works well for full-res images with YOLOv8s
   confidence_threshold: 0.3
 
 retention:

@@ -41,12 +41,16 @@ class CameraManager:
         jpeg_quality: int = 85,
         pre_roll_seconds: float = 5.0,
         capture_interval: float = 0.25,
+        vflip: bool = True,
+        hflip: bool = True,
     ) -> None:
         if Picamera2 is None:
             raise RuntimeError("Picamera2 is required for camera access")
         self._main_size = (main_width, main_height)
         self._lores_size = (lores_width, lores_height)
         self._jpeg_quality = jpeg_quality
+        self._vflip = vflip
+        self._hflip = hflip
         self._camera: Optional[object] = None
         maxlen = max(1, int(pre_roll_seconds / capture_interval))
         self._buffer: deque[BufferedFrame] = deque(maxlen=maxlen)
@@ -54,7 +58,7 @@ class CameraManager:
     def start(self) -> None:
         """Start the camera with dual-stream configuration."""
         self._camera = Picamera2()
-        transform = Transform(vflip=True, hflip=True) if Transform else None
+        transform = Transform(vflip=self._vflip, hflip=self._hflip) if Transform else None
         config = self._camera.create_preview_configuration(
             main={"size": self._main_size},
             lores={"size": self._lores_size},

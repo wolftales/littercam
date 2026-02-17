@@ -27,6 +27,8 @@ class CaptureConfig:
     main_width: int
     main_height: int
     jpeg_quality: int
+    vflip: bool
+    hflip: bool
 
 
 @dataclass(frozen=True)
@@ -112,6 +114,8 @@ def load_config(path: Path | None = None) -> AppConfig:
             main_width=int(capture_raw.get("main_width", 1920)),
             main_height=int(capture_raw.get("main_height", 1440)),
             jpeg_quality=int(capture_raw.get("jpeg_quality", 85)),
+            vflip=bool(capture_raw.get("vflip", True)),
+            hflip=bool(capture_raw.get("hflip", True)),
         ),
         retention=RetentionConfig(
             days_to_keep=int(_require(retention_raw, "days_to_keep"))

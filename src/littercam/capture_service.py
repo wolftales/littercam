@@ -55,6 +55,8 @@ class CaptureService:
             jpeg_quality=cap.jpeg_quality,
             pre_roll_seconds=cap.pre_roll_seconds,
             capture_interval=cap.capture_interval_seconds,
+            vflip=cap.vflip,
+            hflip=cap.hflip,
         )
 
         cat_cfg = config.cat_detection

@@ -12,6 +12,10 @@ from typing import Optional
 import numpy as np
 from PIL import Image
 
+Transform = None
+if importlib.util.find_spec("libcamera"):
+    Transform = importlib.import_module("libcamera").Transform
+
 logger = logging.getLogger(__name__)
 
 Picamera2 = None
@@ -50,9 +54,11 @@ class CameraManager:
     def start(self) -> None:
         """Start the camera with dual-stream configuration."""
         self._camera = Picamera2()
+        transform = Transform(vflip=True, hflip=True) if Transform else None
         config = self._camera.create_preview_configuration(
             main={"size": self._main_size},
             lores={"size": self._lores_size},
+            transform=transform,
         )
         self._camera.configure(config)
         self._camera.start()
